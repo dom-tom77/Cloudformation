@@ -1,8 +1,10 @@
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
-  Instances creation
+  Création de l'instance Intranet dans AZC
+  
 Parameters:
+
   NetworkStackName:
     Type: String
     Description: Stack Name for network creation
@@ -18,7 +20,6 @@ Parameters:
     Description: Saisir l'adresse IP du serveur Intranet dans AZC
 
 Resources:
-
 
   IntranetSecurityGroup:
     Type: AWS::EC2::SecurityGroup
@@ -50,7 +51,6 @@ Resources:
       Tags:
         - Key: Name
           Value: IntranetGroup
-
 
   IntranetEC2:
     Type: AWS::EC2::Instance
