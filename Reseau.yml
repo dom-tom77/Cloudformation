@@ -255,59 +255,7 @@ Resources:
       GatewayId: !Ref VPNGateway
       RouteTableId: !Ref RouteTableAZC
 
-  IntranetSecurityGroup:
-    Type: AWS::EC2::SecurityGroup
-    Properties:
-      GroupDescription: Intranet security group
-      VpcId: !Ref VPC
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
-      SecurityGroupIngress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: !Ref "LocalPrivateSubnet"
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: !Ref "LocalPrivateSubnet"
-        - IpProtocol: icmp
-          FromPort: 8
-          ToPort: -1
-          CidrIp: !Ref "LocalPrivateSubnet"
 
-      Tags:
-        - Key: Name
-          Value: IntranetGroup
-
-  IntranetEC2:
-    Type: AWS::EC2::Instance
-    Properties:
-      AvailabilityZone:
-        Fn::Select:
-          - 2
-          - Fn::GetAZs: !Ref AWS::Region
-      ImageId: "ami-0e11cbb34015ff725"
-      InstanceType: t2.micro
-      PrivateIpAddress: !Ref IntranetIP
-      SecurityGroupIds:
-        - !Ref IntranetSecurityGroup
-      SubnetId: !Ref SubnetAZC
-      Tags:
-        - Key: name
-          Value: Intranet Server
-      UserData:
-        Fn::Base64:
-          Fn::Sub: |
-            #!/bin/bash -xe
-            # Install Apache2
-            apt install apache2 -y
-            # modifie la page index.html
-            echo "<h1>Bienvenue sur l'Intranet</h1>" > /var/www/html/index.html
-            # Enable and start service
-            systemctl enable apache2
-            systemctl start apache2
 
 Outputs:
 
@@ -329,11 +277,11 @@ Outputs:
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZCCidr ] ]
 
-  PrivateSubnetCidr:
+  LocalSubnetCidr:
     Description: Local Subnet Cidr Block 
     Value: !Ref LocalPrivateSubnet
     Export:
-      Name: !Join [ ":", [ !Ref "AWS::StackName", LocalPrivateCidr ] ]
+      Name: !Join [ ":", [ !Ref "AWS::StackName", LocalSubnetCidr ] ]
 
   SubnetAZAId:
     Description: The AZA's Subnet ID

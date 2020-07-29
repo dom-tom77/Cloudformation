@@ -1,0 +1,82 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Instances creation
+Parameters:
+  NetworkStackName:
+    Type: String
+    Description: Stack Name for network creation
+  VPCId:
+    Type: AWS::EC2::VPC::Id
+    Description: Select the VPC
+  AmiApplicationId:
+    Type: String
+    Description: Enter the AMI's ID of the application server
+  IntranetIP:
+    Type: String
+    #IPv4 : 10.0.30.20
+    Description: Saisir l'adresse IP du serveur Intranet dans AZC
+
+Resources:
+
+
+  IntranetSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Intranet security group
+      VpcId: !Ref VPCId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp:
+            Fn::ImportValue:
+              !Sub "${NetworkStackName}:LocalSubnetCidr"
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp:
+            Fn::ImportValue:
+              !Sub "${NetworkStackName}:LocalSubnetCidr"
+        - IpProtocol: icmp
+          FromPort: 8
+          ToPort: -1
+          CidrIp:
+            Fn::ImportValue:
+              !Sub "${NetworkStackName}:LocalSubnetCidr"
+      Tags:
+        - Key: Name
+          Value: IntranetGroup
+
+
+  IntranetEC2:
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 2
+          - Fn::GetAZs: !Ref AWS::Region
+      ImageId: "ami-0e11cbb34015ff725"
+      InstanceType: t2.micro
+      PrivateIpAddress: !Ref IntranetIP
+      SecurityGroupIds:
+        - !Ref IntranetSecurityGroup
+      SubnetId:
+        Fn::ImportValue: !Sub "${NetworkStackName}:LocalSubnetCidr"
+      Tags:
+        - Key: name
+          Value: Intranet Server
+      UserData:
+        Fn::Base64:
+          Fn::Sub: |
+            #!/bin/bash -xe
+            # Install Apache2
+            apt install apache2 -y
+            # modifie la page index.html
+            echo "<h1>Bienvenue sur l'Intranet</h1>" > /var/www/html/index.html
+            # Enable and start service
+            systemctl enable apache2
+            systemctl start apache2
