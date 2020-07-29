@@ -1,19 +1,23 @@
 ---
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
-  Création de l'instance Intranet dans AZC
+  Creation de l'instance Intranet dans AZC
   
 Parameters:
 
   NetworkStackName:
     Type: String
-    Description: Stack Name for network creation
+    Description: Nom de la pile "Network"
+    #default: Network
+
   VPCId:
     Type: AWS::EC2::VPC::Id
-    Description: Select the VPC
-  AmiApplicationId:
-    Type: String
-    Description: Enter the AMI's ID of the application server
+    Description: Selectioner le VPC
+
+  SubnetId:
+    Type: List<AWS::EC2::Subnet::Id>
+    Description: Selectionner le Subnet
+
   IntranetIP:
     Type: String
     #IPv4 : 10.0.30.20
@@ -65,7 +69,7 @@ Resources:
       SecurityGroupIds:
         - !Ref IntranetSecurityGroup
       SubnetId:
-        Fn::ImportValue: !Sub "${NetworkStackName}:LocalSubnetCidr"
+        Fn::ImportValue: !Sub "${NetworkStackName}:SubnetAZCId"
       Tags:
         - Key: name
           Value: Intranet Server
