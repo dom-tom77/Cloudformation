@@ -239,14 +239,14 @@ Resources:
   VPNConnectionRoute:
     Type: AWS::EC2::VPNConnectionRoute
     Properties:
-      DestinationCidrBlock: !Ref LocalPrivateSubnet
+      DestinationCidrBlock: !Ref PrivateLocalSubnet
       VpnConnectionId: !Ref VPNConnexion
 
   PrivateRouteVPN:
     Type: AWS::EC2::Route
     DependsOn: VPNConnectionRoute
     Properties:
-      DestinationCidrBlock: !Ref LocalPrivateSubnet
+      DestinationCidrBlock: !Ref PrivateLocalSubnet
       GatewayId: !Ref VPNGateway
       RouteTableId: !Ref RouteTableAZC
 
@@ -274,7 +274,7 @@ Outputs:
 
   LocalSubnetCidr:
     Description: Local Subnet Cidr Block 
-    Value: !Ref LocalPrivateSubnet
+    Value: !Ref PrivateLocalSubnet
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", LocalSubnetCidr ] ]
 
