@@ -15,7 +15,7 @@ Parameters:
     Description: Selectioner le VPC
 
   SubnetId:
-    Type: List<AWS::EC2::Subnet::Id>
+    Type: AWS::EC2::Subnet::Id
     Description: Selectionner le Subnet
 
   IntranetIP:
