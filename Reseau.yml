@@ -1,12 +1,11 @@
 ## Network preparation for E-Corp's AWS Cloud
 # VPC creation
-# Creation of 3 subnets 
-# Creation of 1 Internet Gateway
-# Creation of 1x NAT
-# Creation of 3x Route Tables
-# Link between subnets and Route Tables
-# Creation of the default routes
-
+# Creation de trois subnets 
+# Creation d'une Internet Gateway
+# Creation d'une adresse NAT
+# Creation de trois tables de routage 
+# association entre les subnets et tables de routage
+# Creation de la route par défaut
 
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
