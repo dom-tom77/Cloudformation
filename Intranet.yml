@@ -18,10 +18,14 @@ Parameters:
     Type: AWS::EC2::Subnet::Id
     Description: Selectionner le Subnet
 
-  IntranetIP:
+  IntranetServerIP:
     Type: String
+    MinLength: '7'
+    MaxLength: '15'
     #IPv4 : 10.0.30.20
     Description: Saisir l'adresse IP du serveur Intranet dans AZC
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})'
+    ConstraintDescription: "Doit etre une IP CIDR valide sous la notation : x.x.x.x."
 
 Resources:
 
@@ -65,7 +69,7 @@ Resources:
           - Fn::GetAZs: !Ref AWS::Region
       ImageId: "ami-0e11cbb34015ff725"
       InstanceType: t2.micro
-      PrivateIpAddress: !Ref IntranetIP
+      PrivateIpAddress: !Ref IntranetServerIP
       SecurityGroupIds:
         - !Ref IntranetSecurityGroup
       SubnetId:
