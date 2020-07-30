@@ -1,0 +1,90 @@
+---
+AWSTemplateFormatVersion: 2010-09-09
+Description: >-
+  Creation de l'instance Intranet dans AZC
+  
+Parameters:
+
+  NetworkStackName:
+    Type: String
+    Description: "Nom de la pile "Network""
+    #default: Network
+
+  VPCId:
+    Type: AWS::EC2::VPC::Id
+    Description: Selectioner le VPC du projet
+
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Selectionner le Subnet AZC
+
+  IntranetServerIP:
+    Type: String
+    MinLength: '7'
+    MaxLength: '15'
+    #IPv4 : 10.0.30.20
+    Description: Saisir l'adresse IP du serveur Intranet dans AZC
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})'
+    ConstraintDescription: "Doit etre une IP CIDR valide sous la notation : x.x.x.x"
+
+Resources:
+
+  IntranetSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: Intranet security group
+      VpcId: !Ref VPCId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp:
+            Fn::ImportValue:
+              !Sub "${NetworkStackName}:LocalSubnetCidr"
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp:
+            Fn::ImportValue:
+              !Sub "${NetworkStackName}:LocalSubnetCidr"
+        - IpProtocol: icmp
+          FromPort: 8
+          ToPort: -1
+          CidrIp:
+            Fn::ImportValue:
+              !Sub "${NetworkStackName}:LocalSubnetCidr"
+      Tags:
+        - Key: Name
+          Value: IntranetGroup
+
+  IntranetEC2:
+    Type: AWS::EC2::Instance
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 2
+          - Fn::GetAZs: !Ref AWS::Region
+      ImageId: "ami-0e11cbb34015ff725"
+      InstanceType: t2.micro
+      PrivateIpAddress: !Ref IntranetServerIP
+      SecurityGroupIds:
+        - !Ref IntranetSecurityGroup
+      SubnetId:
+        Fn::ImportValue: !Sub "${NetworkStackName}:SubnetAZCId"
+      Tags:
+        - Key: name
+          Value: Intranet Server
+      UserData:
+        Fn::Base64:
+          Fn::Sub: |
+            #!/bin/bash -xe
+            # Install Apache2
+            apt install apache2 -y
+            # modifie la page index.html
+            echo "<h1>Bienvenue sur l'Intranet</h1>" > /var/www/html/index.html
+            # Enable and start service
+            systemctl enable apache2
+            systemctl start apache2
