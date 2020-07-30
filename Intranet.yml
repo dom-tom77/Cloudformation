@@ -12,7 +12,7 @@ Parameters:
 
   VPCId:
     Type: AWS::EC2::VPC::Id
-    Description: Selectioner le VPC
+    Description: Selectioner le VPC du projet
 
   SubnetId:
     Type: AWS::EC2::Subnet::Id
