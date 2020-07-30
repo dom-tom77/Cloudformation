@@ -16,7 +16,7 @@ Parameters:
 
   SubnetId:
     Type: AWS::EC2::Subnet::Id
-    Description: Selectionner le Subnet
+    Description: Selectionner le Subnet AZC
 
   IntranetServerIP:
     Type: String
