@@ -7,7 +7,7 @@ Parameters:
 
   NetworkStackName:
     Type: String
-    Description: Nom de la pile "Network"
+    Description: "Nom de la pile "Network""
     #default: Network
 
   VPCId:
