@@ -15,6 +15,13 @@ Description: >-
 # Initialisation
 Parameters:
   PublicLocalSubnet:
+    MinLength: '7'
+    MaxLength: '15'
+    Default: 0.0.0.0
+    Description: Saisir votre adresse reseau publique. 
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})'
+    ConstraintDescription: "Doit etre une IP CIDR valide sous la notation : x.x.x.x"
+
     Type: String
     Default : 92.135.144.211
     Description: Saisir l'adresse ip publique
