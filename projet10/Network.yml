@@ -14,19 +14,6 @@ Description: >-
 
 # Initialisation
 Parameters:
-  PublicLocalSubnet:
-    Type: String
-    Default : 92.135.144.211
-    Description: Saisir l'adresse ip publique
-
-  PrivateLocalSubnet:
-    Type: String
-    MinLength: '9'
-    MaxLength: '18'
-    Default: 192.168.1.0/24
-    Description: Saisir votre adresse reseau prive. 
-    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
-    ConstraintDescription: "Doit etre une IP CIDR valide sous la notation : x.x.x.x/x."
 
   VpcCidrBlock:
     Type: String
@@ -37,6 +24,15 @@ Parameters:
     AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
     ConstraintDescription: "Doit être une adresse valide sous la notation : x.x.x.x/x "
 
+  PrivateLocalSubnet:
+    Type: String
+    MinLength: '9'
+    MaxLength: '18'
+    Default: 192.168.1.0/24
+    Description: Saisir votre adresse reseau prive. 
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: "Doit etre une IP CIDR valide sous la notation : x.x.x.x/x."
+
 Resources:
 
   P10Bucket:
@@ -46,7 +42,7 @@ Resources:
       BucketName: "aic-projet-10"
 
 # Creation du VPC
-  VPC:
+  myVPC:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: !Ref VpcCidrBlock
@@ -65,11 +61,12 @@ Resources:
         Fn::Select:
           - 0
           - Fn::GetAZs: !Ref AWS::Region
-      CidrBlock: !Select [10, !Cidr [ !GetAtt VPC.CidrBlock, 11, 8 ]]
+      CidrBlock: !Select [10, !Cidr [ !GetAtt myVPC.CidrBlock, 11, 8 ]]
+#      CidrBlock: 10.0.10.0/24
       Tags:
         - Key: Name
-          Value: 'MainVPC-AZA'
-      VpcId: !Ref VPC
+          Value: 'myVPC-AZA'
+      VpcId: !Ref myVPC
 
   SubnetAZB:
     Type: AWS::EC2::Subnet
@@ -78,11 +75,13 @@ Resources:
         Fn::Select:
           - 1
           - Fn::GetAZs: !Ref AWS::Region
-      CidrBlock: !Select [20, !Cidr [ !GetAtt VPC.CidrBlock, 21, 8 ]]
+      CidrBlock: !Select [20, !Cidr [ !GetAtt myVPC.CidrBlock, 21, 8 ]]
+#      CidrBlock: 10.0.20.0/24
+
       Tags:
         - Key: Name
-          Value: 'MainVPC-AZB'
-      VpcId: !Ref VPC
+          Value: 'myVPC-AZB'
+      VpcId: !Ref myVPC
 
   SubnetAZC:
     Type: AWS::EC2::Subnet
@@ -91,11 +90,12 @@ Resources:
         Fn::Select:
           - 2
           - Fn::GetAZs: !Ref AWS::Region
-      CidrBlock: !Select [30, !Cidr [ !GetAtt VPC.CidrBlock, 31, 8 ]]
+      CidrBlock: !Select [30, !Cidr [ !GetAtt myVPC.CidrBlock, 31, 8 ]]
+#      CidrBlock: 10.0.30.0/24
       Tags:
         - Key: Name
-          Value: 'MainVPC-AZC'
-      VpcId: !Ref VPC
+          Value: 'myVPC-AZC'
+      VpcId: !Ref myVPC
 
 # Creation de la passerelle Internet 
   InternetGateway:
@@ -107,7 +107,7 @@ Resources:
   AttachInternetGateway:
     Type: 'AWS::EC2::VPCGatewayAttachment'
     Properties:
-      VpcId: !Ref VPC
+      VpcId: !Ref myVPC
       InternetGatewayId: !Ref InternetGateway
 
 # Creation de l'interface NAT
@@ -131,7 +131,7 @@ Resources:
   RouteTableAZA:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref VPC
+      VpcId: !Ref myVPC
       Tags:
         - Key: Name
           Value: Route-AZA-${AWS::StackName}
@@ -146,7 +146,7 @@ Resources:
   RouteTableAZB:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref VPC
+      VpcId: !Ref myVPC
       Tags:
         - Key: Name
           Value: Route-AZB-${AWS::StackName}
@@ -161,7 +161,7 @@ Resources:
   RouteTableAZC:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref VPC
+      VpcId: !Ref myVPC
       Tags:
         - Key: Name
           Value: Route-AZC-${AWS::StackName}
@@ -197,92 +197,29 @@ Resources:
       NatGatewayId: !Ref NatGatewayAZC
       RouteTableId: !Ref RouteTableAZC
  
-  #### VPN
-    # Customer Gateway
-  CustomerGateway:
-    Type: AWS::EC2::CustomerGateway
-    Properties:
-      BgpAsn: 65000
-      IpAddress: !Ref PublicLocalSubnet
-      Tags:
-        - Key: Name
-          Value: Customer-Gateway-${AWS::StackName}
-      Type: ipsec.1
-
-  # VPN Gateway
-  VPNGateway:
-    Type: AWS::EC2::VPNGateway
-    Properties:
-      Type: ipsec.1
-      Tags:
-        - Key: Name
-          Value: VPN-Gateway-${AWS::StackName}
-
-  VPNGatewayAttachment:
-    Type: AWS::EC2::VPCGatewayAttachment
-    Properties:
-      VpnGatewayId: !Ref VPNGateway
-      VpcId: !Ref VPC
-
-  # VPN Connexion
-  VPNConnexion:
-    Type : AWS::EC2::VPNConnection
-    Properties:
-      Type: ipsec.1
-      CustomerGatewayId: !Ref CustomerGateway
-      StaticRoutesOnly: True
-      Tags:
-        - Key: Name
-          Value: VPN-Connexion-${AWS::StackName}
-      VpnGatewayId: !Ref VPNGateway
-  
-  VPNConnectionRoute:
-    Type: AWS::EC2::VPNConnectionRoute
-    Properties:
-      DestinationCidrBlock: !Ref PrivateLocalSubnet
-      VpnConnectionId: !Ref VPNConnexion
-
-  PrivateRouteVPN:
-    Type: AWS::EC2::Route
-    DependsOn: VPNConnectionRoute
-    Properties:
-      DestinationCidrBlock: !Ref PrivateLocalSubnet
-      GatewayId: !Ref VPNGateway
-      RouteTableId: !Ref RouteTableAZC
-
-#  VPNGatewayRoutePropagation:
-#    Type: AWS::EC2::VPNGatewayRoutePropagation
-#    DependsOn: VPNGateway
-#    Properties:
-#       RouteTableIds: !Ref RouteTableAZC
-#       VpnGatewayId: !Ref VPNGateway
-
-
+ 
 Outputs:
 
   AZASubnetCidr:
     Description: AZA's CIDR Subnet block
-    Value: !Select [10, !Cidr [ !GetAtt VPC.CidrBlock, 11, 8 ]]
+    Value: !Select [10, !Cidr [ !GetAtt myVPC.CidrBlock, 11, 8 ]]
+#    Value: 10.0.10.0/24
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZACidr ] ]
 
   AZBSubnetCidr:
     Description: AZB's CIDR Subnet block
-    Value: !Select [20, !Cidr [ !GetAtt VPC.CidrBlock, 21, 8 ]]
+    Value: !Select [20, !Cidr [ !GetAtt myVPC.CidrBlock, 21, 8 ]]
+#    Value: 10.0.20.0/24
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZBCidr ] ]
 
   AZCSubnetCidr:
     Description: AZC's CIDR Subnet block
-    Value: !Select [30, !Cidr [ !GetAtt VPC.CidrBlock, 31, 8 ]]
+    Value: !Select [30, !Cidr [ !GetAtt myVPC.CidrBlock, 31, 8 ]]
+#    Value: 10.0.30.0/24
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZCCidr ] ]
-
-  LocalSubnetCidr:
-    Description: Local Subnet Cidr Block 
-    Value: !Ref PrivateLocalSubnet
-    Export:
-      Name: !Join [ ":", [ !Ref "AWS::StackName", LocalSubnetCidr ] ]
 
   SubnetAZAId:
     Description: The AZA's Subnet ID
@@ -307,6 +244,29 @@ Outputs:
     Value: !Ref NatEip
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", NatEipId ] ]
+
+
+  LocalSubnetCidr:
+    Description: Local Subnet Cidr Block 
+    Value: !Ref PrivateLocalSubnet
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", LocalSubnetCidr ] ]
+
+  RouteTableAZA:
+    Description: The AZA's Route ID
+    Value: !Ref RouteTableAZA
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", RouteTableAZAid ] ]
+  RouteTableAZB:
+    Description: The AZB's Route ID
+    Value: !Ref RouteTableAZB
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", RouteTableAZBid ] ]
+  RouteTableAZC:
+    Description: The AZC's Route ID
+    Value: !Ref RouteTableAZC
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", RouteTableAZCid ] ]
   
   Gateway:
     Description: Gateway Address
