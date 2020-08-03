@@ -7,8 +7,7 @@ Parameters:
 
   NetworkStackName:
     Type: String
-    Description: "Nom de la pile "Network""
-    #default: Network
+    Description: "Nom de la pile 'Network'"
 
   VPCId:
     Type: AWS::EC2::VPC::Id
