@@ -68,9 +68,9 @@ Resources:
       StaticRoutesOnly: False
       VpnGatewayId: !Ref VPNGateway
 
-  #VPNConnectionRoute:
-  #  Type: "AWS::EC2::VPNConnectionRoute"
- #   Properties:
- #     DestinationCidrBlock:
+#  VPNConnectionRoute:
+#    Type: "AWS::EC2::VPNConnectionRoute"
+#    Properties:
+#      DestinationCidrBlock:
 #      VpnConnectionId: !Ref VPNConnection
 
