@@ -1,13 +1,6 @@
 AWSTemplateFormatVersion: '2010-09-09'
 Description: AWS Managed VPN with BGP
 
-# aws cloudformation create-stack --stack-name vpn-stack --template-body file://aws-vpn-stack.yml --parameters ParameterKey=VPC,ParameterValue=vpc-a08c1dc6 ParameterKey=RouteTables,ParameterValue='rtb-bfde6fc6,rtb-d7c071ae' ParameterKey=CustomerIP,ParameterValue=34.243.6.54
-
-# aws cloudformation describe-stacks --stack-name vpn-stack
-# aws cloudformation describe-stack-resources --stack-name vpn-stack
-
-Parameters:
-
 Parameters:
   CustomerIP:
     Type: String
@@ -23,10 +16,8 @@ Parameters:
     Description: Selectioner le VPC du projet
 
   RouteTables:
-
     Description: Comma separated list of tables in VPC to propagate routes to
     Type: CommaDelimitedList
-
   
   CustomerASN:
     Description: BGP ASN on customer side
