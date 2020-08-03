@@ -1,0 +1,76 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: AWS Managed VPN with BGP
+
+# aws cloudformation create-stack --stack-name vpn-stack --template-body file://aws-vpn-stack.yml --parameters ParameterKey=VPC,ParameterValue=vpc-a08c1dc6 ParameterKey=RouteTables,ParameterValue='rtb-bfde6fc6,rtb-d7c071ae' ParameterKey=CustomerIP,ParameterValue=34.243.6.54
+
+# aws cloudformation describe-stacks --stack-name vpn-stack
+# aws cloudformation describe-stack-resources --stack-name vpn-stack
+
+Parameters:
+
+Parameters:
+  CustomerIP:
+    Type: String
+    MinLength: '7'
+    MaxLength: '15'
+    Default : 176.136.96.14
+    Description: Saisir l'adresse ip publique
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})'
+    ConstraintDescription: "Doit etre une IP CIDR valide sous la notation : x.x.x.x"
+
+  VPCId:
+    Type: AWS::EC2::VPC::Id
+    Description: Selectioner le VPC du projet
+
+  RouteTables:
+
+    Description: Comma separated list of tables in VPC to propagate routes to
+    Type: CommaDelimitedList
+
+  
+  CustomerASN:
+    Description: BGP ASN on customer side
+    Type: Number
+    Default: 65000
+
+Resources:
+  VPNGateway:
+    Type: "AWS::EC2::VPNGateway"
+    Properties:
+      Type: ipsec.1
+
+  VPCGatewayAttachment:
+    Type: "AWS::EC2::VPCGatewayAttachment"
+    Properties:
+      VpcId: !Ref VPCId
+      VpnGatewayId: !Ref VPNGateway
+
+  VPNGatewayRoutePropagation:
+    Type: "AWS::EC2::VPNGatewayRoutePropagation"
+    DependsOn:
+      - VPCGatewayAttachment
+    Properties:
+      RouteTableIds: !Ref RouteTables
+      VpnGatewayId: !Ref VPNGateway
+
+  CustomerGateway:
+    Type: "AWS::EC2::CustomerGateway"
+    Properties:
+      Type: ipsec.1
+      BgpAsn: !Ref CustomerASN
+      IpAddress: !Ref CustomerIP
+
+  VPNConnection:
+    Type: "AWS::EC2::VPNConnection"
+    Properties:
+      Type: ipsec.1
+      CustomerGatewayId: !Ref CustomerGateway
+      StaticRoutesOnly: False
+      VpnGatewayId: !Ref VPNGateway
+
+  #VPNConnectionRoute:
+  #  Type: "AWS::EC2::VPNConnectionRoute"
+ #   Properties:
+ #     DestinationCidrBlock:
+#      VpnConnectionId: !Ref VPNConnection
+
