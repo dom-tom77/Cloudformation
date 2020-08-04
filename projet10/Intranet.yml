@@ -35,7 +35,7 @@ Resources:
       VpcId: !Ref VPCId
       SecurityGroupEgress:
         - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
+          CidrIp: 10.0.30.0/24
       SecurityGroupIngress:
         - IpProtocol: tcp
           FromPort: 80
