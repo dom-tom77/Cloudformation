@@ -15,53 +15,46 @@ Parameters:
     Type: AWS::EC2::VPC::Id
     Description: Selectioner le VPC du projet
 
-  RouteTables:
-    Description: Comma separated list of tables in VPC to propagate routes to
-    Type: CommaDelimitedList
-  
-  CustomerASN:
-    Description: BGP ASN on customer side
+  InstanceAMI:
+    Description: OpenVPN AMI
+    Type: String
+    Default: ami-bc3566ab
+
+  InstanceType:
+    Description: OpenVPN Instance Type
+    Type: String
+    AllowedValues:
+      - t2.nano
+      - t2.micro
+      - t2.small
+      - t2.medium
+      - t2.large
+    Default: t2.micro
+
+  KeyName:
+    Description: SSH Key Name
+    Type: AWS::EC2::KeyPair::KeyName
+
+  AdminPassword:
+    Description: OpenVPN Admin Password
+    Type: String
+    NoEcho: true
+    MinLength: 8
+    MaxLength: 32
+    ConstraintDescription: Must be at least 8 chars long
+
+  RouteAllTraffic:
+    Description: Should all local traffic go over VPN when connected?
     Type: Number
-    Default: 65000
+    AllowedValues:
+      - 0
+      - 1
+    Default: 1
 
-Resources:
-  VPNGateway:
-    Type: "AWS::EC2::VPNGateway"
-    Properties:
-      Type: ipsec.1
-
-  VPCGatewayAttachment:
-    Type: "AWS::EC2::VPCGatewayAttachment"
-    Properties:
-      VpcId: !Ref VPCId
-      VpnGatewayId: !Ref VPNGateway
-
-  VPNGatewayRoutePropagation:
-    Type: "AWS::EC2::VPNGatewayRoutePropagation"
-    DependsOn:
-      - VPCGatewayAttachment
-    Properties:
-      RouteTableIds: !Ref RouteTables
-      VpnGatewayId: !Ref VPNGateway
-
-  CustomerGateway:
-    Type: "AWS::EC2::CustomerGateway"
-    Properties:
-      Type: ipsec.1
-      BgpAsn: !Ref CustomerASN
-      IpAddress: !Ref CustomerIP
-
-  VPNConnection:
-    Type: "AWS::EC2::VPNConnection"
-    Properties:
-      Type: ipsec.1
-      CustomerGatewayId: !Ref CustomerGateway
-      StaticRoutesOnly: False
-      VpnGatewayId: !Ref VPNGateway
-
-#  VPNConnectionRoute:
-#    Type: "AWS::EC2::VPNConnectionRoute"
-#    Properties:
-#      DestinationCidrBlock:
-#      VpnConnectionId: !Ref VPNConnection
-
+  UseVPNDNS:
+    Description: Should client use VPN supplied DNS when connected?
+    Type: Number
+    AllowedValues:
+      - 0
+      - 1
+    Default: 1
