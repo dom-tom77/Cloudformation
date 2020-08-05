@@ -5,9 +5,17 @@ Description: Establishes an OpenVPN server in a public subnet within a new VPC
 
 Parameters:
   InstanceAMI:
-    Description: OpenVPN AMI
+    Description: Subnet AZC 
     Type: String
     Default: ami-bc3566ab
+
+  NetworkStackName:
+    Type: String
+    Description: "Nom de la pile 'Network'"
+
+  VPCId:
+    Type: AWS::EC2::VPC::Id
+    Description: Selectioner le VPC du projet
 
   InstanceType:
     Description: OpenVPN Instance Type
@@ -49,36 +57,38 @@ Parameters:
     Default: 1
 
 Resources:
-  VPC:
-    Type: AWS::EC2::VPC
-    Properties:
-      CidrBlock: "10.0.0.0/16"
-      Tags:
-      - Key: Name
-        Value: OpenVPN
 
-  PublicSubnet:
+  SubnetAZC:
     Type: AWS::EC2::Subnet
     Properties:
-      VpcId: !Ref VPC
-      CidrBlock: "10.0.0.0/24"
+      AvailabilityZone:
+        Fn::Select:
+          - 2
+          - Fn::GetAZs: !Ref AWS::Region
+      CidrBlock: !Select [30, !Cidr [ !GetAtt myVPC.CidrBlock, 31, 8 ]]
+#      CidrBlock: 10.0.30.0/24
       Tags:
-      - Key: Name
-        Value: OpenVPN Public Subnet
+        - Key: Name
+          Value: 'myVPC-AZC'
+      VpcId: !Ref VPCId
 
   InternetGateway:
     Type: AWS::EC2::InternetGateway
+    Properties:
+      Tags:
+        - Key: Name
+          Value: 'InternetGateway-${AWS::StackName}'
 
   AttachGateway:
     Type: AWS::EC2::VPCGatewayAttachment
     Properties:
-      VpcId: !Ref VPC
+      VpcId: !Ref VPCId
       InternetGatewayId: !Ref InternetGateway
-
+      
   RouteTable:
     Type: AWS::EC2::RouteTable
     Properties:
-      VpcId: !Ref VPC
+      VpcId: !Ref VPCId
 
   Route:
     Type: AWS::EC2::Route
@@ -91,10 +101,10 @@ Resources:
   SubnetRouteTableAssociation:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
-      SubnetId: !Ref PublicSubnet
+      SubnetId: !Ref SubnetAZC
       RouteTableId: !Ref RouteTable
 
-  IPAddress:
+  NatEip:
     Type: AWS::EC2::EIP
     Properties:
       Domain: "vpc"
@@ -102,7 +112,7 @@ Resources:
   SecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      VpcId: !Ref VPC
+      VpcId: !Ref VPCId
       GroupDescription: Security group for OpenVPN Server
       SecurityGroupIngress:
       - IpProtocol: tcp
@@ -120,20 +130,20 @@ Resources:
 
   OpenVPNInstance:
     Type: AWS::EC2::Instance
-    DependsOn: IPAddress
+    DependsOn: NatEip
     Properties:
       ImageId: !Ref InstanceAMI
       InstanceType: !Ref InstanceType
       KeyName: !Ref KeyName
       SecurityGroupIds:
       - !Ref SecurityGroup
-      SubnetId: !Ref PublicSubnet
+      SubnetId: !Ref SubnetAZC
       Tags:
        - Key: Name
          Value: OpenVPN Instance
       UserData:
         Fn::Base64: !Sub |
-          public_hostname=${IPAddress}
+          public_hostname=${NatEip}
           admin_user=openvpn
           admin_pw=${AdminPassword}
           reroute_gw=${RouteAllTraffic}
@@ -143,5 +153,5 @@ Resources:
     Type: AWS::EC2::EIPAssociation
     DependsOn: OpenVPNInstance
     Properties:
-      AllocationId: !GetAtt IPAddress.AllocationId
+      AllocationId: !GetAtt NatEip.AllocationId
       InstanceId: !Ref OpenVPNInstance
