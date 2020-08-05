@@ -15,6 +15,10 @@ Parameters:
     Type: AWS::EC2::VPC::Id
     Description: Selectioner le VPC du projet
 
+  SubnetId:
+    Type: AWS::EC2::Subnet::Id
+    Description: Selectionner le Subnet AZC
+    
   InstanceAMI:
     Description: OpenVPN AMI
     Type: String
@@ -58,3 +62,53 @@ Parameters:
       - 0
       - 1
     Default: 1
+    
+    
+Resources:
+  
+  VPNSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref VPCid
+      GroupDescription: Security group for OpenVPN Server
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 443
+        ToPort: 443
+        CidrIp: "0.0.0.0/0"
+      - IpProtocol: tcp
+        FromPort: 943
+        ToPort: 943
+        CidrIp: "0.0.0.0/0"
+      - IpProtocol: udp
+        FromPort: 1194
+        ToPort: 1194
+        CidrIp: "0.0.0.0/0"
+
+  OpenVPNInstance:
+    Type: AWS::EC2::Instance
+    DependsOn: IPAddress
+    Properties:
+      ImageId: !Ref InstanceAMI
+      InstanceType: !Ref InstanceType
+      KeyName: !Ref KeyName
+      SecurityGroupIds:
+      - !Ref VPNSecurityGroup
+      SubnetId: !Ref SubnetId
+      Tags:
+       - Key: Name
+         Value: OpenVPN Instance
+      UserData:
+        Fn::Base64: !Sub |
+          public_hostname=${IPAddress}
+          admin_user=openvpn
+          admin_pw=${AdminPassword}
+          reroute_gw=${RouteAllTraffic}
+          reroute_dns=${UseVPNDNS}
+
+  IPAssociaton:
+    Type: AWS::EC2::EIPAssociation
+    DependsOn: OpenVPNInstance
+    Properties:
+      AllocationId: !GetAtt IPAddress.AllocationId
+      InstanceId: !Ref OpenVPNInstance
