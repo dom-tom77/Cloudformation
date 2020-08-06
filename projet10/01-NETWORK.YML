@@ -10,7 +10,7 @@ Parameters:
     Type: String
     MinLength: '9'
     MaxLength: '18'    
-    Default : 92.135.144.211/32
+    Default : 176.136.96.14/32
     Description: Saisir l'adresse ip publique
     AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
     ConstraintDescription: "Doit être une adresse valide sous la notation : x.x.x.x/x "
