@@ -1,10 +1,10 @@
-
+---
 AWSTemplateFormatVersion: 2010-09-09
 Description: >-
   Creation du VPC principal de ses sous-reseaux et du VPN
 # Initialisation
-Parameters:
 
+Parameters:
 
   PublicAddress:
     Type: String
