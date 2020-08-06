@@ -190,7 +190,7 @@ Resources:
     Type: AWS::EC2::SubnetRouteTableAssociation
     Properties:
       SubnetId: !Ref SubnetAZC
-      RouteTableId: !Ref RouteTable
+      RouteTableId: !Ref RouteTableAZC
 
   NatEip:
     Type: AWS::EC2::EIP
@@ -229,7 +229,25 @@ Resources:
         FromPort: 8
         ToPort: -1
         CidrIp: "0.0.0.0/0"
-#       CidrIp: "PublicAddress"  
+#       CidrIp: "PublicAddress" 
+
+  SSHOpenVPNSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      VpcId: !Ref myVPC
+      GroupDescription: Security group for OpenVPN Server only for SSH
+      SecurityGroupIngress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: "0.0.0.0/0"
+#       CidrIp: "PublicAddress" 
+      SecurityGroupEgress:
+      - IpProtocol: tcp
+        FromPort: 22
+        ToPort: 22
+        CidrIp: "0.0.0.0/0"
+#       CidrIp: "PublicAddress"   
 
   OpenVPNInstance:
     Type: AWS::EC2::Instance
@@ -240,6 +258,7 @@ Resources:
       KeyName: !Ref KeyName
       SecurityGroupIds:
       - !Ref OpenVPNSecurityGroup
+      - !Ref SSHOpenVPNSecurityGroup
       SubnetId: !Ref SubnetAZC
       Tags:
        - Key: Name
