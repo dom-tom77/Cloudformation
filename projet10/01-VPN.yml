@@ -43,6 +43,34 @@ Resources:
         - Key: Name
           Value: 'P10'
 
+
+  SubnetAZA:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 2
+          - Fn::GetAZs: !Ref AWS::Region
+      CidrBlock: !Select [10, !Cidr [ !GetAtt myVPC.CidrBlock, 11, 8 ]]
+      Tags:
+        - Key: Name
+          Value: 'MainVPC-AZA'
+      VpcId: !Ref myVPC
+
+  SubnetAZB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone:
+        Fn::Select:
+          - 2
+          - Fn::GetAZs: !Ref AWS::Region
+      CidrBlock: !Select [20, !Cidr [ !GetAtt myVPC.CidrBlock, 21, 8 ]]
+      Tags:
+        - Key: Name
+          Value: 'MainVPC-AZB'
+      VpcId: !Ref myVPC
+
+
   SubnetAZC:
     Type: AWS::EC2::Subnet
     Properties:
@@ -226,12 +254,37 @@ Resources:
 
 Outputs:
 
+  AZASubnetCidr:
+    Description: AZA's CIDR Subnet block
+    Value: !Select [10, !Cidr [ !GetAtt myVPC.CidrBlock, 11, 8 ]]
+#    Value: 10.0.10.0/24
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZACidr ] ]
+  AZBSubnetCidr:
+    Description: AZB's CIDR Subnet block
+    Value: !Select [20, !Cidr [ !GetAtt myVPC.CidrBlock, 21, 8 ]]
+#    Value: 10.0.20.0/24
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZBCidr ] ]
+
   AZCSubnetCidr:
     Description: AZC's CIDR Subnet block
     Value: !Select [30, !Cidr [ !GetAtt myVPC.CidrBlock, 31, 8 ]]
 #    Value: 10.0.30.0/24
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZCCidr ] ]
+
+  SubnetAZAId:
+    Description: The AZA's Subnet ID
+    Value: !Ref SubnetAZC
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZAId ] ]
+
+  SubnetAZBId:
+    Description: The AZB's Subnet ID
+    Value: !Ref SubnetAZB
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZBId ] ]
 
   SubnetAZCId:
     Description: The AZC's Subnet ID
@@ -246,7 +299,7 @@ Outputs:
       Name: !Join [ ":", [ !Ref "AWS::StackName", VPCId ] ]
 
   VPCCIDR:
-    Description: VPC ID
+    Description: VPC CIDR
     Value: !Ref VpcCidrBlock
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", VPCCIDR ] ]
@@ -257,11 +310,10 @@ Outputs:
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", InternetGatewayId ] ]
 
-
   myS3BucketOut:
     Description: S3 bucket name
     Value: !Ref myS3Bucket
 
-  EC2OpenVPNInstanceOut:
+  OpenVPNInstanceOut:
     Description: EC2 Instance
     Value: !Ref EC2OpenVPNInstance
