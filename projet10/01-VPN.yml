@@ -27,12 +27,13 @@ Parameters:
     AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
     ConstraintDescription: "Doit être une adresse valide sous la notation : x.x.x.x/x "
 
-
 Mappings:
+
   RegionMap:
     eu-west-3:
       "AMAZONLINUXAMI" : "ami-0e0dc92b2cc01f6ef" 
       "OPENVPNAMI" : "ami-0b8d6b68595965460"
+      
 Resources:
 
   myVPC:
@@ -42,7 +43,6 @@ Resources:
       Tags:
         - Key: Name
           Value: 'P10'
-
 
   SubnetAZA:
     Type: AWS::EC2::Subnet
@@ -69,8 +69,7 @@ Resources:
         - Key: Name
           Value: 'MainVPC-AZB'
       VpcId: !Ref myVPC
-
-
+      
   SubnetAZC:
     Type: AWS::EC2::Subnet
     Properties:
@@ -179,7 +178,6 @@ Resources:
           ToPort: -1
           CidrIp: !Ref ClientIPCIDR
 
-
   myEC2InstanceRole:
     Type: AWS::IAM::Role
     Properties:
@@ -251,26 +249,23 @@ Resources:
           Key: Name
           Value: OpenVPN Server
 
-
 Outputs:
 
   AZASubnetCidr:
     Description: AZA's CIDR Subnet block
     Value: !Select [10, !Cidr [ !GetAtt myVPC.CidrBlock, 11, 8 ]]
-#    Value: 10.0.10.0/24
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZACidr ] ]
+      
   AZBSubnetCidr:
     Description: AZB's CIDR Subnet block
     Value: !Select [20, !Cidr [ !GetAtt myVPC.CidrBlock, 21, 8 ]]
-#    Value: 10.0.20.0/24
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZBCidr ] ]
 
   AZCSubnetCidr:
     Description: AZC's CIDR Subnet block
     Value: !Select [30, !Cidr [ !GetAtt myVPC.CidrBlock, 31, 8 ]]
-#    Value: 10.0.30.0/24
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZCCidr ] ]
 
