@@ -1,0 +1,341 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: Configuration du reseau et VPN
+
+Parameters:
+
+  SSHKeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: SSH Key for the OpenVPN Instance
+    ConstraintDescription: Must be the name of an existing EC2 KeyPair.
+
+  ClientIPCIDR:
+    Type: String 
+    MinLength: '9'
+    MaxLength: '18'    
+    Default: 78.253.235.31/32
+    Description: "Saisir l'IPv4 de votre adresse IPv4 publique au format CIDR. "
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: "Doit etre une adresse valide sous la notation : x.x.x.x/32 "
+
+  VpcCidrBlock:
+    Type: String 
+    MinLength: '9'
+    MaxLength: '18'    
+    Default: 10.0.0.0/16
+    Description: Saisir le reseau du VPC sous notation CIDR.
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: "Doit être une adresse valide sous la notation : x.x.x.x/x "
+
+Mappings:
+
+  RegionMap:
+    eu-west-3:
+      "AMAZONLINUXAMI" : "ami-0e0dc92b2cc01f6ef" 
+      "OPENVPNAMI" : "ami-0b8d6b68595965460"
+      
+Resources:
+
+  myVPC:
+    Type: AWS::EC2::VPC
+    Properties:
+      CidrBlock: !Ref VpcCidrBlock
+      Tags:
+        - Key: Name
+          Value: 'P10'
+
+  SubnetAZA:
+    Type: AWS::EC2::Subnet
+    Properties:      
+      AvailabilityZone: eu-west-3a
+      CidrBlock: !Select [10, !Cidr [ !GetAtt myVPC.CidrBlock, 11, 8 ]]
+      Tags:
+        - Key: Name
+          Value: 'MainVPC-AZA'
+      VpcId: !Ref myVPC
+
+  SubnetAZB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: eu-west-3b
+      CidrBlock: !Select [20, !Cidr [ !GetAtt myVPC.CidrBlock, 21, 8 ]]
+      Tags:
+        - Key: Name
+          Value: 'MainVPC-AZB'
+      VpcId: !Ref myVPC
+      
+  SubnetAZC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: eu-west-3c
+      CidrBlock: !Select [30, !Cidr [ !GetAtt myVPC.CidrBlock, 31, 8 ]]
+      Tags:
+        - Key: Name
+          Value: 'MainVPC-AZC'
+      VpcId: !Ref myVPC
+
+  myInternetGateway:
+      Type: "AWS::EC2::InternetGateway"
+      Properties:
+        Tags:
+        - Key: Name
+          Value: SubnetAZC-IGW
+
+####
+  SubnetRouteTableAssociationAZA:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      RouteTableId: !Ref PublicRouteTable
+      SubnetId: !Ref SubnetAZA
+    DependsOn: 
+      - SubnetAZA
+      - PublicRouteTable
+
+  SubnetRouteTableAssociationAZB:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref SubnetAZB
+      RouteTableId: !Ref PublicRouteTable
+    DependsOn: 
+      - SubnetAZB
+      - PublicRouteTable
+
+  PublicRouteTable:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: !Sub '${AWS::StackName}-Route-Table'
+      VpcId: !Ref myVPC
+
+###
+
+
+  myRouteTableAZC:
+      Type: "AWS::EC2::RouteTable"
+      Properties:
+        VpcId: !Ref myVPC
+        Tags:
+          - Key: Name
+            Value: SubnetAZC-myRouteTable
+
+  AttachInternetGateway:
+    Type: AWS::EC2::VPCGatewayAttachment
+    Properties:
+      VpcId: !Ref myVPC
+      InternetGatewayId: !Ref myInternetGateway
+
+  RouteDefaultAZC:
+    Type: "AWS::EC2::Route"
+    DependsOn: myInternetGateway
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref myInternetGateway
+      RouteTableId: !Ref myRouteTableAZC
+
+  SubnetAZCRouteTableAssociation:
+    Type: AWS::EC2::SubnetRouteTableAssociation
+    Properties:
+      SubnetId: !Ref SubnetAZC
+      RouteTableId: !Ref myRouteTableAZC
+
+  myEIP:
+    Type: "AWS::EC2::EIP"
+    Properties:
+      Domain: myvpc
+
+  AssociateManagementAccessPort:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt myEIP.AllocationId
+      NetworkInterfaceId: !Ref myNetworkInterface
+
+
+
+  OpenVPNInstanceSG:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SG for OpenVPN Server
+      VpcId: !Ref myVPC
+      SecurityGroupIngress:
+        - IpProtocol: udp
+          FromPort: 1194
+          ToPort: 1194
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: tcp
+          FromPort: 943
+          ToPort: 943
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: icmp
+          FromPort: 8
+          ToPort: -1
+          CidrIp: !Ref ClientIPCIDR
+
+      SecurityGroupEgress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: tcp
+          FromPort: 943
+          ToPort: 943
+          CidrIp: !Ref ClientIPCIDR
+        - IpProtocol: icmp
+          FromPort: 8
+          ToPort: -1
+          CidrIp: !Ref ClientIPCIDR
+
+  myEC2InstanceRole:
+    Type: AWS::IAM::Role
+    Properties:
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+        - Effect: Allow
+          Principal:
+            Service:
+            - ec2.amazonaws.com
+          Action:
+          - sts:AssumeRole
+      Path: "/"
+
+  myAccessPolicy:
+    Type: AWS::IAM::Policy
+    Properties:
+      PolicyName: myAccessPolicy
+      PolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Action:
+              - s3:*
+            Effect: Allow
+            Resource: "*"
+      Roles:
+        - !Ref myEC2InstanceRole
+
+  ec2InstanceProfile:
+    Type: AWS::IAM::InstanceProfile
+    Properties:
+      Path: "/"
+      Roles:
+       - !Ref myEC2InstanceRole
+
+  myNetworkInterface:
+    Type: AWS::EC2::NetworkInterface
+    Properties:
+      SubnetId: !Ref SubnetAZC
+      Description: Public Interface
+      GroupSet:
+      - !Ref OpenVPNInstanceSG
+      SourceDestCheck: false
+      Tags:
+        -
+          Key: Name
+          Value: Public ENI
+
+  myS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      AccessControl: Private
+
+  # Instance EC2 OpenVPN
+  EC2OpenVPNInstance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", OPENVPNAMI]
+      InstanceType: t2.micro
+      SourceDestCheck: false
+      KeyName: !Ref SSHKeyName
+      NetworkInterfaces:
+        -
+          NetworkInterfaceId: !Ref myNetworkInterface
+          DeviceIndex: 0
+      IamInstanceProfile: !Ref ec2InstanceProfile
+      Tags:
+        -
+          Key: Name
+          Value: OpenVPN Server
+
+Outputs:
+
+  AZASubnetCidr:
+    Description: AZA's CIDR Subnet block
+    Value: !Select [10, !Cidr [ !GetAtt myVPC.CidrBlock, 11, 8 ]]
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZACidr ] ]
+      
+  AZBSubnetCidr:
+    Description: AZB's CIDR Subnet block
+    Value: !Select [20, !Cidr [ !GetAtt myVPC.CidrBlock, 21, 8 ]]
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZBCidr ] ]
+
+  AZCSubnetCidr:
+    Description: AZC's CIDR Subnet block
+    Value: !Select [30, !Cidr [ !GetAtt myVPC.CidrBlock, 31, 8 ]]
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZCCidr ] ]
+
+  SubnetAZAId:
+    Description: The AZA's Subnet ID
+    Value: !Ref SubnetAZC
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZAId ] ]
+
+  SubnetAZBId:
+    Description: The AZB's Subnet ID
+    Value: !Ref SubnetAZB
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZBId ] ]
+
+  SubnetAZCId:
+    Description: The AZC's Subnet ID
+    Value: !Ref SubnetAZC
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", SubnetAZCId ] ]
+
+  VPCId:
+    Description: VPC ID
+    Value: !Ref myVPC
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", VPCId ] ]
+
+  VPCCIDR:
+    Description: VPC CIDR
+    Value: !Ref VpcCidrBlock
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", VPCCIDR ] ]
+
+  Gateway:
+    Description: Gateway Address
+    Value: !Ref myEIP
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", InternetGatewayId ] ]
+
+  myS3BucketOut:
+    Description: S3 bucket name
+    Value: !Ref myS3Bucket
+
+  OpenVPNInstanceOut:
+    Description: EC2 Instance
+    Value: !Ref EC2OpenVPNInstance
