@@ -42,7 +42,7 @@ Resources:
   LaunchConfiguration:
     Type: AWS::AutoScaling::LaunchConfiguration
     Properties:
-      AssociatePublicIpAddress: false
+      AssociatePublicIpAddress: true
       ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMAZONLINUXAMI]
       InstanceType: t2.micro
       SecurityGroups:
@@ -58,8 +58,8 @@ Resources:
               cd /root
               mkdir /root/.aws
               echo -e "[default]\naws_access_key_id = Azerty11\naws_secret_access_key = Azerty11" > /root/.aws/credentials
-              docker run --name DockerWP-R7 -v /var/www/html:/var/www/html -e WORDPRESS_DB_HOST=db.host.fr:3306 -e WORDPRESS_DB_USER=user -e WORDPRESS_DB_PASSWORD=user_password -e WORDPRESS_TABLE_PREFIX=db_ -p 80:80 -d wordpress
-              docker run --name AWS -v /root/.aws:/root/.aws -v /root:/aws -d amazon/aws-cli s3 cp s3://bucket-of-p10-project/plugins.tar.gz plugins.tar.gz
+              docker run --name DockerWP-R7 -v /var/www/html:/var/www/html -e WORDPRESS_DB_HOST=db.host.fr:3306 -e WORDPRESS_DB_USER=wordpress -e WORDPRESS_DB_PASSWORD=wordpress -e WORDPRESS_TABLE_PREFIX=db_ -p 80:80 -d wordpress
+              #docker run --name AWS -v /root/.aws:/root/.aws -v /root:/aws -d amazon/aws-cli s3 cp s3://bucket-of-p10-project/plugins.tar.gz plugins.tar.gz
               sleep 5
               tar xzf /root/plugins.tar.gz -C /
 
@@ -181,74 +181,31 @@ Resources:
   DBSubnetGroup:
     Type: 'AWS::RDS::DBSubnetGroup'
     Properties:
-      DBSubnetGroupDescription: 'DB Subnet group avec 2 subnet'
-      DBSubnetGroupName: !Sub '${AWS::StackName}-subnet-group-DB'
+      DBSubnetGroupDescription: Sous-reseaux RDS
       SubnetIds: !Ref ListSubnetId
-      Tags: 
-        - Key: Name
-          Value: !Sub '${AWS::StackName}-Subnet-Group-DB'
 
-  RDSSecurityGroup:
+  DBSecurityGroup:
     Type: 'AWS::EC2::SecurityGroup'
     Properties:
-      GroupDescription: SG pour le RDS
-      GroupName: !Sub '${AWS::StackName}-SG-RDS'
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
+      GroupDescription: Acces bdd
       SecurityGroupIngress:
         - IpProtocol: tcp
-          FromPort: 3306
-          ToPort: 3306
+          FromPort: '3306'
+          ToPort: '3306'
           SourceSecurityGroupId: !Ref InstancesSecurityGroup
-      Tags:
-        - Key: Name
-          Value: !Sub '${AWS::StackName}-SG-RDS'
       VpcId: !Ref VPCId
 
   DBInstance:
     Type: 'AWS::RDS::DBInstance'
     Properties:
-      DBSecurityGroups: 
-        - DBSubnetGroup
-      AllocatedStorage: '20'
-      BackupRetentionPeriod: 1
-      MasterUsername: wordpress
-      MasterUserPassword: Azerty11
-      
-      AutoMinorVersionUpgrade: false
       DBSubnetGroupName: !Ref DBSubnetGroup
-      DBInstanceClass: !Ref DBTypeParameter
-      DBInstanceIdentifier: !Sub '${AWS::StackName}-DataBase'
-      DBSnapshotIdentifier: arn:aws:rds:eu-west-3:788347226260:og:default:mariadb-10-4
+      DBName: Wordpress
       Engine: mariadb
       MultiAZ: true
-      OptionGroupName: AIC-P10
-      PubliclyAccessible: false
-      StorageType: gp2
-      VPCSecurityGroups: 
-        - !Ref RDSSecurityGroup
-      Tags: 
-        - Key: Name
-          Value: !Sub '${AWS::StackName}-RDS-DataBase-from-snapshot'
-    DependsOn:
-      - RDSSecurityGroup
-      - DBSubnetGroup
-
-  RDSREPLICA:
-    Type: 'AWS::RDS::DBInstance'
-    Properties:
-      AutoMinorVersionUpgrade: false
-      AllocatedStorage: 20
-      DBInstanceClass: !Ref DBTypeParameter
-      DBInstanceIdentifier: !Sub '${AWS::StackName}-Replica'
-      SourceDBInstanceIdentifier: !Ref DBInstance
-      StorageType: gp2
-      VPCSecurityGroups: 
-        - !Ref RDSSecurityGroup
-      Tags: 
-        - Key: Name
-          Value: !Sub '${AWS::StackName}-REPLICA' 
-    DependsOn:
-      - DBInstance
-      - RDSSecurityGroup
+      MasterUsername: wordpress
+      MasterUserPassword: Azerty11
+      DBInstanceClass: db.t2.small
+      AllocatedStorage: 5
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+ 
