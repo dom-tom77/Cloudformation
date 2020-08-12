@@ -44,6 +44,19 @@ Resources:
         - Key: Name
           Value: 'P10'
 
+  myEIP:
+    Type: "AWS::EC2::EIP"
+    Properties:
+      Domain: myvpc
+
+  AssociateManagementAccessPort:
+    Type: AWS::EC2::EIPAssociation
+    Properties:
+      AllocationId: !GetAtt myEIP.AllocationId
+      NetworkInterfaceId: !Ref myNetworkInterface
+
+#### AZA ####
+
   SubnetAZA:
     Type: AWS::EC2::Subnet
     Properties:      
@@ -54,27 +67,6 @@ Resources:
           Value: 'AZA Subnet'
       VpcId: !Ref myVPC
 
-  SubnetAZB:
-    Type: AWS::EC2::Subnet
-    Properties:
-      AvailabilityZone: eu-west-3b
-      CidrBlock: !Select [20, !Cidr [ !GetAtt myVPC.CidrBlock, 21, 8 ]]
-      Tags:
-        - Key: Name
-          Value: 'AZB Subnet'
-      VpcId: !Ref myVPC
-      
-  SubnetAZC:
-    Type: AWS::EC2::Subnet
-    Properties:
-      AvailabilityZone: eu-west-3c
-      CidrBlock: !Select [30, !Cidr [ !GetAtt myVPC.CidrBlock, 31, 8 ]]
-      Tags:
-        - Key: Name
-          Value: 'AZC Subnet'
-      VpcId: !Ref myVPC
-
-####
   RouteTableAZA:
     Type: 'AWS::EC2::RouteTable'
     Properties:
@@ -92,6 +84,24 @@ Resources:
       - SubnetAZA
       - RouteTableAZA
 
+  RouteAZA:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref myInternetGateway
+      RouteTableId: !Ref RouteTableAZA
+
+#### AZB ####
+  SubnetAZB:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: eu-west-3b
+      CidrBlock: !Select [20, !Cidr [ !GetAtt myVPC.CidrBlock, 21, 8 ]]
+      Tags:
+        - Key: Name
+          Value: 'AZB Subnet'
+      VpcId: !Ref myVPC
+
   RouteTableAZB:
     Type: 'AWS::EC2::RouteTable'
     Properties:
@@ -108,7 +118,24 @@ Resources:
     DependsOn: 
       - SubnetAZB
       - RouteTableAZB
-###
+
+  RouteAZB:
+    Type: AWS::EC2::Route
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref myInternetGateway
+      RouteTableId: !Ref RouteTableAZB
+
+#### AZC ####
+  SubnetAZC:
+    Type: AWS::EC2::Subnet
+    Properties:
+      AvailabilityZone: eu-west-3c
+      CidrBlock: !Select [30, !Cidr [ !GetAtt myVPC.CidrBlock, 31, 8 ]]
+      Tags:
+        - Key: Name
+          Value: 'AZC Subnet'
+      VpcId: !Ref myVPC
 
   RouteTableAZC:
     Type: "AWS::EC2::RouteTable"
@@ -124,6 +151,15 @@ Resources:
       SubnetId: !Ref SubnetAZC
       RouteTableId: !Ref RouteTableAZC
 
+  RouteDefaultAZC:
+    Type: "AWS::EC2::Route"
+    DependsOn: myInternetGateway
+    Properties:
+      DestinationCidrBlock: 0.0.0.0/0
+      GatewayId: !Ref myInternetGateway
+      RouteTableId: !Ref RouteTableAZC
+####
+
   myInternetGateway:
     Type: 'AWS::EC2::InternetGateway'
     Properties:
@@ -136,26 +172,6 @@ Resources:
     Properties:
       VpcId: !Ref myVPC
       InternetGatewayId: !Ref myInternetGateway
-
-  RouteDefaultAZC:
-    Type: "AWS::EC2::Route"
-    DependsOn: myInternetGateway
-    Properties:
-      DestinationCidrBlock: 0.0.0.0/0
-      GatewayId: !Ref myInternetGateway
-      RouteTableId: !Ref RouteTableAZC
-
-
-  myEIP:
-    Type: "AWS::EC2::EIP"
-    Properties:
-      Domain: myvpc
-
-  AssociateManagementAccessPort:
-    Type: AWS::EC2::EIPAssociation
-    Properties:
-      AllocationId: !GetAtt myEIP.AllocationId
-      NetworkInterfaceId: !Ref myNetworkInterface
 
   OpenVPNInstanceSG:
     Type: AWS::EC2::SecurityGroup
