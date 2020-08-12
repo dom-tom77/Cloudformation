@@ -51,7 +51,7 @@ Resources:
       CidrBlock: !Select [10, !Cidr [ !GetAtt myVPC.CidrBlock, 11, 8 ]]
       Tags:
         - Key: Name
-          Value: 'MainVPC-AZA'
+          Value: 'AZA Subnet'
       VpcId: !Ref myVPC
 
   SubnetAZB:
@@ -61,7 +61,7 @@ Resources:
       CidrBlock: !Select [20, !Cidr [ !GetAtt myVPC.CidrBlock, 21, 8 ]]
       Tags:
         - Key: Name
-          Value: 'MainVPC-AZB'
+          Value: 'AZB Subnet'
       VpcId: !Ref myVPC
       
   SubnetAZC:
@@ -71,53 +71,65 @@ Resources:
       CidrBlock: !Select [30, !Cidr [ !GetAtt myVPC.CidrBlock, 31, 8 ]]
       Tags:
         - Key: Name
-          Value: 'MainVPC-AZC'
+          Value: 'AZC Subnet'
       VpcId: !Ref myVPC
 
-  myInternetGateway:
-      Type: "AWS::EC2::InternetGateway"
-      Properties:
-        Tags:
-        - Key: Name
-          Value: SubnetAZC-IGW
-
 ####
+  RouteTableAZA:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: SubnetAZA-RouteTable
+      VpcId: !Ref myVPC
+
   SubnetRouteTableAssociationAZA:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
-      RouteTableId: !Ref PublicRouteTable
+      RouteTableId: !Ref RouteTableAZA
       SubnetId: !Ref SubnetAZA
     DependsOn: 
       - SubnetAZA
-      - PublicRouteTable
+      - RouteTableAZA
+
+  RouteTableAZB:
+    Type: 'AWS::EC2::RouteTable'
+    Properties:
+      Tags: 
+        - Key: Name
+          Value: SubnetAZB-RouteTable
+      VpcId: !Ref myVPC
 
   SubnetRouteTableAssociationAZB:
     Type: 'AWS::EC2::SubnetRouteTableAssociation'
     Properties:
       SubnetId: !Ref SubnetAZB
-      RouteTableId: !Ref PublicRouteTable
+      RouteTableId: !Ref RouteTableAZB
     DependsOn: 
       - SubnetAZB
-      - PublicRouteTable
-
-  PublicRouteTable:
-    Type: 'AWS::EC2::RouteTable'
-    Properties:
-      Tags: 
-        - Key: Name
-          Value: !Sub '${AWS::StackName}-Route-Table'
-      VpcId: !Ref myVPC
-
+      - RouteTableAZB
 ###
 
+  RouteTableAZC:
+    Type: "AWS::EC2::RouteTable"
+    Properties:
+      VpcId: !Ref myVPC
+      Tags:
+        - Key: Name
+          Value: SubnetAZC-RouteTable
 
-  myRouteTableAZC:
-      Type: "AWS::EC2::RouteTable"
-      Properties:
-        VpcId: !Ref myVPC
-        Tags:
-          - Key: Name
-            Value: SubnetAZC-myRouteTable
+  SubnetRouteTableAssociationAZC:
+    Type: 'AWS::EC2::SubnetRouteTableAssociation'
+    Properties:
+      SubnetId: !Ref SubnetAZC
+      RouteTableId: !Ref RouteTableAZC
+
+  myInternetGateway:
+    Type: 'AWS::EC2::InternetGateway'
+    Properties:
+      Tags:
+        - Key: Name
+          Value: SubnetAZC-IGW
 
   AttachInternetGateway:
     Type: AWS::EC2::VPCGatewayAttachment
@@ -131,13 +143,8 @@ Resources:
     Properties:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref myInternetGateway
-      RouteTableId: !Ref myRouteTableAZC
+      RouteTableId: !Ref RouteTableAZC
 
-  SubnetAZCRouteTableAssociation:
-    Type: AWS::EC2::SubnetRouteTableAssociation
-    Properties:
-      SubnetId: !Ref SubnetAZC
-      RouteTableId: !Ref myRouteTableAZC
 
   myEIP:
     Type: "AWS::EC2::EIP"
@@ -149,8 +156,6 @@ Resources:
     Properties:
       AllocationId: !GetAtt myEIP.AllocationId
       NetworkInterfaceId: !Ref myNetworkInterface
-
-
 
   OpenVPNInstanceSG:
     Type: AWS::EC2::SecurityGroup
