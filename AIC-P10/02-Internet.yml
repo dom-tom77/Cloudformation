@@ -1,0 +1,221 @@
+---
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >-
+  Configuration du subnet Public
+
+Parameters:
+  
+  VPCId:
+    Type: "AWS::EC2::VPC::Id"
+    Description: Selectioner le VPC du projet
+
+  ListSubnetId:
+    Type: "List<AWS::EC2::Subnet::Id>"
+    Description: Selectionner le Subnet AZA et AZB
+
+  DBTypeParameter: 
+    Type: String
+    Default: db.t2.small
+
+Mappings:
+
+  RegionMap:
+    eu-west-3:
+      "AMAZONLINUXAMI" : "ami-0e0dc92b2cc01f6ef" 
+      "OPENVPNAMI" : "ami-0b8d6b68595965460"
+      
+Resources:
+
+  InstancesSecurityGroup:
+    Type: AWS::EC2::SecurityGroup
+    Properties:
+      GroupDescription: SG pour les Instances
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: 0.0.0.0/0
+      VpcId: !Ref VPCId
+
+  LaunchConfiguration:
+    Type: "AWS::AutoScaling::LaunchConfiguration"
+    Properties:
+      AssociatePublicIpAddress: true
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMAZONLINUXAMI]
+      InstanceType: t2.micro
+      SecurityGroups:
+        - !Ref InstancesSecurityGroup
+      UserData: !Base64 
+        'Fn::Join':
+          - ''
+          - - |
+              #!/bin/bash
+            - |
+              cd /home/ec2-user/
+            - |
+              sudo yum -y update
+            - |
+              sudo yum install -y docker 
+            - |
+              sudo usermod -a -G docker ec2-user
+            - |
+              sudo service docker start 
+            - >
+              sudo curl -L "https://github.com/docker/compose/releases/download/1.26.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose 
+            - |
+              sudo chmod +x /usr/local/bin/docker-compose 
+            - |
+              sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose 
+            - |
+              sudo wget https://raw.githubusercontent.com/dom-tom77/Cloudformation/master/Docker/docker-compose.yml
+            - |
+              sudo docker-compose up -d 
+
+
+#####
+
+
+  AutoScalingGroup:
+    Type: "AWS::AutoScaling::AutoScalingGroup"
+    Properties:
+      LaunchConfigurationName: !Ref LaunchConfiguration
+      AvailabilityZones:
+        - Fn::Select:
+          - 0
+          - Fn::GetAZs: !Ref AWS::Region
+        - Fn::Select:
+          - 1
+          - Fn::GetAZs: !Ref AWS::Region
+      VPCZoneIdentifier: !Ref ListSubnetId
+      DesiredCapacity: 1
+      MaxSize: 2
+      MinSize: 1
+      TargetGroupARNs:
+        - !Ref TargetGroup
+
+  ScalingPolicy:
+    Type: "AWS::AutoScaling::ScalingPolicy"
+    Properties:
+      AdjustmentType: ChangeInCapacity
+      AutoScalingGroupName: !Ref AutoScalingGroup
+      EstimatedInstanceWarmup: 240
+      MetricAggregationType: Average
+      PolicyType: StepScaling
+      StepAdjustments: 
+        - MetricIntervalLowerBound: 0
+          MetricIntervalUpperBound: 10
+          ScalingAdjustment: 1
+        - MetricIntervalLowerBound: 10
+          ScalingAdjustment: 1
+
+  Alarm:
+    Type: "AWS::CloudWatch::Alarm"
+    Properties:
+      ActionsEnabled: TRUE
+      AlarmActions: 
+        - !Ref ScalingPolicy
+      AlarmDescription: "Alarm when the CPU is above 80%"
+      AlarmName: !Sub "${AWS::StackName}-Alarm"
+      ComparisonOperator: GreaterThanThreshold
+      DatapointsToAlarm: 1
+      Dimensions: 
+        - Name: AutoScalingGroupName
+          Value: !Ref AutoScalingGroup
+      EvaluationPeriods: 1
+      MetricName: CPUUtilization
+      Namespace: AWS/EC2
+      Period: 300
+      Statistic: Average
+      Threshold: 80
+
+  Topic:
+    Type: "AWS::SNS::Topic"
+    Properties: 
+      DisplayName: "Message send by the alarm"
+      Tags: 
+        - Key: name
+          Value: !Sub "${AWS::StackName}-Topic created"
+      TopicName: !Sub "${AWS::StackName}-Topic" 
+
+  Subscription:
+    Type: "AWS::SNS::Subscription"
+    Properties:
+      Endpoint: dmilliez@gmail.com
+      Protocol: email
+      TopicArn: !Ref Topic
+      Region: !Ref AWS::Region
+
+  TargetGroup:
+    Type: "AWS::ElasticLoadBalancingV2::TargetGroup"
+    Properties:
+      Port: 80
+      Protocol: HTTP
+      VpcId: !Ref VPCId
+
+  LoadBalancer:
+    Type: "AWS::ElasticLoadBalancingV2::LoadBalancer"
+    Properties:
+      Type: application
+      Scheme: internet-facing
+      SecurityGroups:
+        - !Ref InstancesSecurityGroup
+      Subnets: !Ref ListSubnetId
+
+
+  LoadBlancerListener:
+    Type: "AWS::ElasticLoadBalancingV2::Listener"
+    Properties: 
+      LoadBalancerArn: !Ref LoadBalancer
+      Port: 80
+      Protocol: HTTP
+      DefaultActions:
+        - Type: forward
+          TargetGroupArn: !Ref TargetGroup
+
+#######
+
+  DBSubnetGroup:
+    Type: "AWS::RDS::DBSubnetGroup"
+    Properties:
+      DBSubnetGroupDescription: "Sous-reseaux RDS"
+      SubnetIds: !Ref ListSubnetId
+
+  DBSecurityGroup:
+    Type: "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription: "Acces bdd"
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: '3306'
+          ToPort: '3306'
+          SourceSecurityGroupId: !Ref InstancesSecurityGroup
+      VpcId: !Ref VPCId
+
+  DBInstance:
+    Type: "AWS::RDS::DBInstance"
+    Properties:
+      DBSubnetGroupName: !Ref DBSubnetGroup
+      DBName: Wordpress
+      Engine: mysql
+      MultiAZ: true
+      MasterUsername: wordpress
+      MasterUserPassword: Azerty11
+      DBInstanceClass: db.t2.small
+      AllocatedStorage: 5
+      VPCSecurityGroups:
+        - !Ref DBSecurityGroup
+ 
+
+Outputs:
+  WebsiteURL:
+    Value: !Join 
+      - ''
+      - - 'http://'
+        - !GetAtt 
+          - LoadBalancer
+        - /wordpress
+    Description: WordPress Website
+
