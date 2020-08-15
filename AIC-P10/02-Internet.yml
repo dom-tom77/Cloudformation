@@ -208,14 +208,3 @@ Resources:
       VPCSecurityGroups:
         - !Ref DBSecurityGroup
  
-
-Outputs:
-  WebsiteURL:
-    Value: !Join 
-      - ''
-      - - 'http://'
-        - !GetAtt 
-          - LoadBalancer
-        - /wordpress
-    Description: WordPress Website
-
