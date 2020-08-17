@@ -48,6 +48,7 @@ Resources:
       InstanceType: t2.micro
       SecurityGroups:
         - !Ref InstancesSecurityGroup
+      
       UserData: !Base64 
         'Fn::Join':
           - ''
@@ -71,6 +72,8 @@ Resources:
               sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose 
             - |
               sudo wget https://raw.githubusercontent.com/dom-tom77/Cloudformation/master/Docker/docker-compose.yml
+            - |
+              sed -i 's/WORDPRESS_DB_HOST: /WORDPRESS_DB_HOST: ${DBInstance.Endpoint.Address}:3306/g' /home/ec2-user/docker-compose.yml
             - |
               sudo docker-compose up -d 
 
