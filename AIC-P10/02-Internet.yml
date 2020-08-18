@@ -17,6 +17,11 @@ Parameters:
     Type: String
     Default: db.t2.small
 
+  SSHKeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: SSH Key for the OpenVPN Instance
+    ConstraintDescription: Must be the name of an existing EC2 KeyPair.
+
 Mappings:
 
   RegionMap:
@@ -29,7 +34,7 @@ Resources:
   InstancesSecurityGroup:
     Type: AWS::EC2::SecurityGroup
     Properties:
-      GroupDescription: SG pour les Instances
+      GroupDescription: Website EC2 security group 
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
@@ -38,49 +43,42 @@ Resources:
           FromPort: 80
           ToPort: 80
           CidrIp: 0.0.0.0/0
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
       VpcId: !Ref VPCId
+
 
   LaunchConfiguration:
     Type: "AWS::AutoScaling::LaunchConfiguration"
+    DependsOn: DBInstance
     Properties:
+      KeyName: !Ref SSHKeyName
       AssociatePublicIpAddress: true
       ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", AMAZONLINUXAMI]
       InstanceType: t2.micro
       SecurityGroups:
         - !Ref InstancesSecurityGroup
-      
-      UserData: !Base64 
-        'Fn::Join':
-          - ''
-          - - |
-              #!/bin/bash
-            - |
-              cd /home/ec2-user/
-            - |
-              sudo yum -y update
-            - |
-              sudo yum install -y docker 
-            - |
-              sudo usermod -a -G docker ec2-user
-            - |
-              sudo service docker start 
-            - >
-              sudo curl -L "https://github.com/docker/compose/releases/download/1.26.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose 
-            - |
-              sudo chmod +x /usr/local/bin/docker-compose 
-            - |
-              sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose 
-            - |
-              sudo wget https://raw.githubusercontent.com/dom-tom77/Cloudformation/master/Docker/docker-compose.yml
-            - |
-              sed -i 's/WORDPRESS_DB_HOST: /WORDPRESS_DB_HOST: ${DBInstance.Endpoint.Address}:3306/g' /home/ec2-user/docker-compose.yml
-            - |
-              sudo docker-compose up -d 
-
-
-#####
-
-
+        - !Ref DBSecurityGroup
+      UserData: 
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          cd /home/ec2-user/
+          sudo yum -y update
+          sudo yum install -y docker 
+          sudo usermod -a -G docker ec2-user
+          sudo service docker start 
+          sudo curl -L "https://github.com/docker/compose/releases/download/1.26.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose 
+          sudo chmod +x /usr/local/bin/docker-compose
+          sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose 
+          sudo wget https://raw.githubusercontent.com/dom-tom77/Cloudformation/master/Docker/docker-compose.yml
+          cat >> docker-compose.yml << EOF
+                WORDPRESS_DB_HOST: ${DBInstance.Endpoint.Address}:3306
+          EOF
+            #sudo sed -i 's/WORDPRESS_DB_HOST: /WORDPRESS_DB_HOST: ${DBInstance.Endpoint.Address}:3306/g' /home/ec2-user/docker-compose.yml
+          sudo docker-compose up -d --build
+            
   AutoScalingGroup:
     Type: "AWS::AutoScaling::AutoScalingGroup"
     Properties:
@@ -204,10 +202,9 @@ Resources:
       DBName: Wordpress
       Engine: mysql
       MultiAZ: true
-      MasterUsername: wordpress
-      MasterUserPassword: Azerty11
+      MasterUsername: Wordpress
+      MasterUserPassword: Wordpress
       DBInstanceClass: db.t2.small
       AllocatedStorage: 5
       VPCSecurityGroups:
         - !Ref DBSecurityGroup
- 
