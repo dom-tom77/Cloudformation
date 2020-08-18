@@ -175,8 +175,6 @@ Resources:
         - Type: forward
           TargetGroupArn: !Ref TargetGroup
 
-#######
-
   DBSubnetGroup:
     Type: "AWS::RDS::DBSubnetGroup"
     Properties:
