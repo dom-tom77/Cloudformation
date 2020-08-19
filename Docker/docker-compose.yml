@@ -1,6 +1,6 @@
 version: '3'
   wordpress:
-    image: wordpress:latest
+    image: conetix/wordpress-with-wp-cli
     ports:
       - "80:80"
     restart: always
