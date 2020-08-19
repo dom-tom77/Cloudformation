@@ -1,12 +1,29 @@
 version: '3'
-services:
+volumes:
+  wp_data:
+services: 
+  wordpress-cli:
+    depends_on:
+      - wordpress
+    image: wordpress:cli
+    user: xfs
+    command: >
+      /bin/sh -c '
+      sleep 10;
+      wp core install --path="/var/www/html" --url="http://localhost:8000" --title="Local Wordpress By Docker" --admin_user=admin --admin_password=Azerty11 --admin_email=dmilliez@gmail.com
+      '
+    volumes:
+      - wp_data:/var/www/html
+      
   wordpress:
     image: wordpress:latest
     ports:
       - "80:80"
     restart: always
-    
+    volumes:
+      - wp_data:/var/www/html
     environment:
       WORDPRESS_DB_USER: Wordpress
       WORDPRESS_DB_PASSWORD: Wordpress
       WORDPRESS_DB_NAME: Wordpress
+
