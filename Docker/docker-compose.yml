@@ -10,7 +10,7 @@ services:
     command: >
       /bin/sh -c '
       sleep 10;
-      wp core install --path="/var/www/html" --url="http://localhost:8000" --title="Local Wordpress By Docker" --admin_user=admin --admin_password=Azerty11 --admin_email=dmilliez@gmail.com
+      wp core install --path="/var/www/html" --title="Local Wordpress By Docker" --admin_user=admin --admin_password=Azerty11 --admin_email=dmilliez@gmail.com
       '
     volumes:
       - wp_data:/var/www/html
