@@ -9,4 +9,3 @@ services:
       WORDPRESS_DB_USER: Wordpress
       WORDPRESS_DB_PASSWORD: Wordpress
       WORDPRESS_DB_NAME: Wordpress
-      WORDPRESS_DB_HOST:
