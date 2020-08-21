@@ -80,19 +80,18 @@ Resources:
           EOF
           docker-compose up -d --build
 
-
-#### Ne fonctionne pas... ####
           cat > dock.sh << EOF
           #!/bin/bash -xe
-          docker-compose exec wordpress wp core install --url=${LoadBalancer.DNSName} --title="OC-AIC-Projet10" --admin_user=dom --admin_password=Azerty11 --admin_email=dmilliez@gmail.com 
-          docker-compose exec wordpress wp core update
-          docker-compose exec wordpress wp theme activate twentytwenty
-          docker-compose exec wordpress wp theme update --all
-          docker-compose exec wordpress wp plugin update --all
+          docker-compose exec -T wordpress wp core install --url=${LoadBalancer.DNSName} --title="OC-AIC-Projet10" --admin_user=dom --admin_password=Azerty11 --admin_email=dmilliez@gmail.com 
+          sleep 30
+          docker-compose exec -T wordpress wp core update
+          sleep 30
+          docker-compose exec -T wordpress wp theme activate twentytwenty
+          docker-compose exec -T wordpress wp theme update --all
+          docker-compose exec -T wordpress wp plugin update --all
           EOF
           sudo chmod 777 dock.sh
           sudo ./dock.sh  
-####
 
   AutoScalingGroup:
     Type: "AWS::AutoScaling::AutoScalingGroup"
