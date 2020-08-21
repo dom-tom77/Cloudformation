@@ -64,20 +64,36 @@ Resources:
       UserData: 
         Fn::Base64: !Sub |
           #!/bin/bash -xe
+          exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
           cd /home/ec2-user/
           sudo yum -y update
           sudo yum install -y docker 
           sudo usermod -a -G docker ec2-user
           sudo service docker start 
           sudo curl -L "https://github.com/docker/compose/releases/download/1.26.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose 
+          sudo curl -O https://raw.githubusercontent.com/wp-cli/builds/gh-pages/phar/wp-cli.phar
           sudo chmod +x /usr/local/bin/docker-compose
           sudo ln -s /usr/local/bin/docker-compose /usr/bin/docker-compose 
           sudo wget https://raw.githubusercontent.com/dom-tom77/Cloudformation/master/Docker/docker-compose.yml
           cat >> docker-compose.yml << EOF
                 WORDPRESS_DB_HOST: ${DBInstance.Endpoint.Address}:3306
           EOF
-          sudo docker-compose up -d --build
-            
+          docker-compose up -d --build
+
+
+#### Ne fonctionne pas... ####
+          cat > dock.sh << EOF
+          #!/bin/bash -xe
+          docker-compose exec wordpress wp core install --url=${LoadBalancer.DNSName} --title="OC-AIC-Projet10" --admin_user=dom --admin_password=Azerty11 --admin_email=dmilliez@gmail.com 
+          docker-compose exec wordpress wp core update
+          docker-compose exec wordpress wp theme activate twentytwenty
+          docker-compose exec wordpress wp theme update --all
+          docker-compose exec wordpress wp plugin update --all
+          EOF
+          sudo chmod 777 dock.sh
+          sudo ./dock.sh  
+####
+
   AutoScalingGroup:
     Type: "AWS::AutoScaling::AutoScalingGroup"
     Properties:
@@ -175,6 +191,8 @@ Resources:
         - Type: forward
           TargetGroupArn: !Ref TargetGroup
 
+
+
   DBSubnetGroup:
     Type: "AWS::RDS::DBSubnetGroup"
     Properties:
@@ -205,3 +223,24 @@ Resources:
       AllocatedStorage: 5
       VPCSecurityGroups:
         - !Ref DBSecurityGroup
+
+Outputs:
+  WPURL:
+    Value: !Join 
+      - ''
+      - - 'http://'
+        - !GetAtt 
+          - LoadBalancer
+          - DNSName
+        - /
+    Description: Wordpress URL
+
+  WPURLAdmin:
+    Value: !Join 
+      - ''
+      - - 'http://'
+        - !GetAtt 
+          - LoadBalancer
+          - DNSName
+        - /admin
+    Description: Wordpress's dashboard URL
