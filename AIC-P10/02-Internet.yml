@@ -64,6 +64,7 @@ Resources:
       UserData: 
         Fn::Base64: !Sub |
           #!/bin/bash -xe
+          # Pour la gestion des logs 
           exec > >(tee /var/log/user-data.log|logger -t user-data -s 2>/dev/console) 2>&1
           cd /home/ec2-user/
           sudo yum -y update
@@ -83,14 +84,18 @@ Resources:
           cat > dock.sh << EOF
           #!/bin/bash -xe
           docker-compose exec -T wordpress wp core install --url=${LoadBalancer.DNSName} --title="OC-AIC-Projet10" --admin_user=dom --admin_password=Azerty11 --admin_email=dmilliez@gmail.com 
-          sleep 30
+          sleep 25
           docker-compose exec -T wordpress wp core update
-          sleep 30
+          sleep 25
           docker-compose exec -T wordpress wp theme activate twentytwenty
+          sleep 5
+          docker-compose exec -T wordpress wp language theme install twentytwenty fr_FR
+          sleep 5
           docker-compose exec -T wordpress wp theme update --all
+          sleep 5
           docker-compose exec -T wordpress wp plugin update --all
           EOF
-          sudo chmod 777 dock.sh
+          sudo chmod 755 dock.sh
           sudo ./dock.sh  
 
   AutoScalingGroup:
