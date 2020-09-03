@@ -142,16 +142,6 @@ Resources:
       VpcId: !Ref myVPC
       InternetGatewayId: !Ref myInternetGateway
 
-  myEIP:
-    Type: "AWS::EC2::EIP"
-    Properties:
-      Domain: myVPC
-
-  myS3Bucket:
-    Type: AWS::S3::Bucket
-    Properties:
-      AccessControl: Private
-
 Outputs:
 
   AZASubnetCidr:
