@@ -1,6 +1,3 @@
----
-AWSTemplateFormatVersion: '2010-09-09'
-Description: Configuration du VPN
 
 Parameters:
 
@@ -9,169 +6,178 @@ Parameters:
     Description: SSH Key for the OpenVPN Instance
     ConstraintDescription: Must be the name of an existing EC2 KeyPair.
 
-  ClientIPCIDR:
+  PublicIPCIDR:
     Type: String 
-    MinLength: '9'
+    MinLength: '7'
     MaxLength: '18'    
     Default: 0.0.0.0/0
     Description: "Saisir l'IPv4 de votre adresse IPv4 publique au format CIDR. "
     AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
     ConstraintDescription: "Doit etre une adresse valide sous la notation : x.x.x.x/32 "
   
+
+  IntranetIP:
+    Type: String
+    MinLength: '7'
+    MaxLength: '15'
+    #IPv4 : 10.0.30.20
+    Description: Saisir l'adresse IP du serveur Intranet dans AZC
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})'
+    ConstraintDescription: "Doit etre une IP CIDR valide sous la notation : x.x.x.x"
+
   VPCId:
     Type: AWS::EC2::VPC::Id
     Description: Selectioner le VPC du projet
 
-  ListSubnetId:
+  SubnetId:
     Type: AWS::EC2::Subnet::Id
     Description: Selectionner le Subnet AZC
-
-  DBTypeParameter: 
+ 
+  InstanceType:
+    Description: WebServer EC2 instance type
     Type: String
-    Default: db.t2.small
+    Default: t2.micro
+
+
+  SSHKeyName:
+    Type: AWS::EC2::KeyPair::KeyName
+    Description: SSH Key for the OpenVPN Instance
+    ConstraintDescription: Must be the name of an existing EC2 KeyPair.
+
 
 Mappings:
 
   RegionMap:
     eu-west-3:
-      "AMAZONLINUXAMI" : "ami-0e0dc92b2cc01f6ef" 
+      "UBUNTUAMI" : "ami-096b8af6e7e8fb927" 
       "OPENVPNAMI" : "ami-0b8d6b68595965460"
-      
+
 Resources:
 
-####
-  OpenVPNInstanceSG:
-    Type: AWS::EC2::SecurityGroup
+  IntranetInstance:
+    Type: "AWS::EC2::Instance"
+    Properties:      
+      InstanceType: !Ref InstanceType
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", UBUNTUAMI]
+      PrivateIpAddress: !Ref IntranetIP        
+      KeyName: !Ref SSHKeyName
+      SecurityGroupIds:
+        - !Ref IntranetSG
+      SubnetId: !Ref SubnetId
+      Tags:
+      - Key: Name
+        Value: Intranet
+      UserData: !Base64 
+        'Fn::Join':
+          - ''
+          - - |
+              #!/bin/bash -xe
+            - |
+              sudo apt update && apt upgrade -y
+              sudo apt install  -y apache2
+              cd /var/www/html/
+              sudo rm index.html
+              cat > index.html << EOF
+              <h1> Site Intranet </h1>
+              EOF
+              sudo systemctl start apache2
+
+  IntranetSG: 
+    Type:  "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription:  Intranet EC2 security group 
+      VpcId: !Ref VPCId
+      SecurityGroupEgress: 
+        - IpProtocol:  -1
+          CidrIp:  10.0.30.0/24
+      SecurityGroupIngress:
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: 0.0.0.0/0
+    
+  VPNInstance:
+    Type: "AWS::EC2::Instance"
+    Properties:
+      InstanceType: !Ref InstanceType
+      SubnetId: !Ref SubnetId
+      SecurityGroupIds:
+        - !Ref VPNInstanceSG
+      KeyName: !Ref SSHKeyName
+      Tags:
+        - Key: Name
+          Value: ServeurVPN      
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", UBUNTUAMI]
+      UserData: !Base64 
+        'Fn::Join':
+          - ''
+          - - |
+              #!/bin/bash -xe
+            - |
+              sudo cat > /etc/rc.local << EOF
+              #! /bin/bash
+              echo 1 > /proc/sys/net/ipv4/ip_forward
+              iptables -t filter -A FORWARD  -i 10.0.30.20 -o eth0 -p all -j ACCEPT 
+              iptables -t filter -A FORWARD  -i eth0 -o 10.0.30.20 -p all -j ACCEPT 
+              iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+              exit 0
+              EOF
+              sudo chmod +x /etc/rc.local
+              sudo /etc/rc.local
+
+  VPNInstanceSG:
+    Type: "AWS::EC2::SecurityGroup"
     Properties:
       GroupDescription: SG for OpenVPN Server
       VpcId: !Ref VPCId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
       SecurityGroupIngress:
         - IpProtocol: udp
           FromPort: 1194
           ToPort: 1194
-          CidrIp: !Ref ClientIPCIDR
+          CidrIp: !Ref PublicIPCIDR
         - IpProtocol: tcp
           FromPort: 22
           ToPort: 22
-          CidrIp: !Ref ClientIPCIDR
+          CidrIp: !Ref PublicIPCIDR
         - IpProtocol: tcp
           FromPort: 80
           ToPort: 80
-          CidrIp: !Ref ClientIPCIDR
+          CidrIp: !Ref PublicIPCIDR
         - IpProtocol: tcp
           FromPort: 443
           ToPort: 443
-          CidrIp: !Ref ClientIPCIDR
+          CidrIp: !Ref PublicIPCIDR
         - IpProtocol: tcp
           FromPort: 943
           ToPort: 943
-          CidrIp: !Ref ClientIPCIDR
+          CidrIp: !Ref PublicIPCIDR
         - IpProtocol: icmp
           FromPort: 8
           ToPort: -1
-          CidrIp: !Ref ClientIPCIDR
+          CidrIp: !Ref PublicIPCIDR
 
-      SecurityGroupEgress:
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: !Ref ClientIPCIDR
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: !Ref ClientIPCIDR
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: !Ref ClientIPCIDR
-        - IpProtocol: tcp
-          FromPort: 943
-          ToPort: 943
-          CidrIp: !Ref ClientIPCIDR
-        - IpProtocol: icmp
-          FromPort: 8
-          ToPort: -1
-          CidrIp: !Ref ClientIPCIDR
-
-
-
-
-
-  AssociateManagementAccessPort:
-    Type: AWS::EC2::EIPAssociation
+  myEIP:
+    Type: "AWS::EC2::EIP"
     Properties:
-      AllocationId: !GetAtt myEIP.AllocationId
-      NetworkInterfaceId: !Ref myNetworkInterface
+      Domain: !Ref VPCId
 
-  myNetworkInterface:
-    Type: AWS::EC2::NetworkInterface
+  IPAssoc:
+    Type: "AWS::EC2::EIPAssociation"
     Properties:
-      SubnetId: !Ref SubnetAZC
-      Description: Public Interface
-      GroupSet:
-      - !Ref OpenVPNInstanceSG
-      SourceDestCheck: false
-      Tags:
-        -
-          Key: Name
-          Value: Public ENI
+      InstanceId: !Ref VPNInstance
+      EIP: !Ref myEIP
+            
+Outputs:
 
-  myEC2InstanceRole:
-    Type: AWS::IAM::Role
-    Properties:
-      AssumeRolePolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-        - Effect: Allow
-          Principal:
-            Service:
-            - ec2.amazonaws.com
-          Action:
-          - sts:AssumeRole
-      Path: "/"
+  Gateway:
+    Description: "Gateway Address"
+    Value: !Ref myEIP
+    Export:
+      Name: !Join [ ":", [ !Ref "AWS::StackName", InternetGatewayId ] ]
 
-  myAccessPolicy:
-    Type: AWS::IAM::Policy
-    Properties:
-      PolicyName: myAccessPolicy
-      PolicyDocument:
-        Version: '2012-10-17'
-        Statement:
-          - Action:
-              - s3:*
-            Effect: Allow
-            Resource: "*"
-      Roles:
-        - !Ref myEC2InstanceRole
-
-  ec2InstanceProfile:
-    Type: AWS::IAM::InstanceProfile
-    Properties:
-      Path: "/"
-      Roles:
-       - !Ref myEC2InstanceRole
-
-
-  # Instance EC2 OpenVPN
-  EC2OpenVPNInstance:
-    Type: "AWS::EC2::Instance"
-    Properties:
-      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", OPENVPNAMI]
-      InstanceType: t2.micro
-      SourceDestCheck: false
-      KeyName: !Ref SSHKeyName
-      NetworkInterfaces:
-        -
-          NetworkInterfaceId: !Ref myNetworkInterface
-          DeviceIndex: 0
-      IamInstanceProfile: !Ref ec2InstanceProfile
-      Tags:
-        -
-          Key: Name
-          Value: OpenVPN Server
-
-output:
-
-  OpenVPNInstanceOut:
-    Description: EC2 Instance
-    Value: !Ref EC2OpenVPNInstance
