@@ -19,6 +19,9 @@ Resources:
     Type: AWS::EC2::VPC
     Properties:
       CidrBlock: !Ref VpcCidrBlock
+      InstanceTenancy: default
+      EnableDnsSupport: 'true'
+      EnableDnsHostnames: 'true'
       Tags:
         - Key: Name
           Value: "P10"
@@ -127,7 +130,6 @@ Resources:
       DestinationCidrBlock: 0.0.0.0/0
       GatewayId: !Ref myInternetGateway
       RouteTableId: !Ref RouteTableAZC
-####
 
   myInternetGateway:
     Type: "AWS::EC2::InternetGateway"
@@ -141,6 +143,7 @@ Resources:
     Properties:
       VpcId: !Ref myVPC
       InternetGatewayId: !Ref myInternetGateway
+
 
 Outputs:
 
@@ -191,13 +194,3 @@ Outputs:
     Value: !Ref VpcCidrBlock
     Export:
       Name: !Join [ ":", [ !Ref "AWS::StackName", VPCCIDR ] ]
-
-  Gateway:
-    Description: "Gateway Address"
-    Value: !Ref myEIP
-    Export:
-      Name: !Join [ ":", [ !Ref "AWS::StackName", InternetGatewayId ] ]
-
-  myS3BucketOut:
-    Description: "S3 bucket name"
-    Value: !Ref myS3Bucket
