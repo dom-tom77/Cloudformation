@@ -87,7 +87,14 @@ Resources:
       SecurityGroupIngress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
+
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
     
+
+
+
   VPNInstance:
     Type: "AWS::EC2::Instance"
     Properties:
@@ -118,20 +125,42 @@ Resources:
               net.ipv4.ip_forward = 1
               EOF
 
+
+
   SGVPNInstance:
     Type: "AWS::EC2::SecurityGroup"
-    DependsOn:
-      - SGIntranet
     Properties:
-      GroupDescription: >-
-        Enable All traffic from VPN server IP
-      SecurityGroupIngress:
-        - IpProtocol: -1
-          CidrIp: 10.0.30.0/24
-        - IpProtocol: -1
-          SourceSecurityGroupId: !Ref SGIntranet
+      GroupDescription: SG for OpenVPN Server
       VpcId: !Ref VPCId
-
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: udp
+          FromPort: 1194
+          ToPort: 1194
+          CidrIp: !Ref PublicIPCIDR
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref PublicIPCIDR
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref PublicIPCIDR
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref PublicIPCIDR
+        - IpProtocol: tcp
+          FromPort: 943
+          ToPort: 943
+          CidrIp: !Ref PublicIPCIDR
+        - IpProtocol: icmp
+          FromPort: 8
+          ToPort: -1
+          CidrIp: !Ref PublicIPCIDR
+          
   myEIP:
     Type: "AWS::EC2::EIP"
     Properties:
