@@ -111,8 +111,8 @@ Resources:
           - Fn::GetAZs: !Ref AWS::Region
       VPCZoneIdentifier: !Ref ListSubnetId
       DesiredCapacity: 1
-      MaxSize: 2
-      MinSize: 1
+      MaxSize: 4
+      MinSize: 2
       TargetGroupARNs:
         - !Ref TargetGroup
 
