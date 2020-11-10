@@ -10,7 +10,7 @@ Parameters:
     Type: String 
     MinLength: '7'
     MaxLength: '15'    
-    Default: 88.122.40.87
+    Default: 0.0.0.0
     Description: "Saisir l'IPv4 de votre adresse IPv4 publique. "
     AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})'
     ConstraintDescription: "Doit etre une adresse valide sous la notation : x.x.x.x/x "
