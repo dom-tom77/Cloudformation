@@ -15,12 +15,12 @@ Parameters:
     AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})'
     ConstraintDescription: "Doit etre une adresse valide sous la notation : x.x.x.x/x "
 
-  LocalPublicIPCIDR:
+  PublicCIDR:
     Type: String 
     MinLength: '7'
     MaxLength: '18'    
     Default: 88.122.40.87/32
-    Description: "Saisir l'IPv4 de votre adresse IPv4 publique. "
+    Description: "Saisir l'adresse réseau local au format CIDR. "
     AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
     ConstraintDescription: "Doit etre une adresse valide sous la notation : x.x.x.x/x "
 
@@ -32,7 +32,16 @@ Parameters:
     Description: "Saisir l'adresse réseau local au format CIDR. "
     AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
     ConstraintDescription: "Doit etre une adresse valide sous la notation : x.x.x.x/x "
-  
+
+  AZCSubnetCIDR:
+    Type: String 
+    MinLength: '7'
+    MaxLength: '18'    
+    Default: 10.0.30.0/24
+    Description: "Saisir l'adresse réseau local au format CIDR. "
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
+    ConstraintDescription: "Doit etre une adresse valide sous la notation : x.x.x.x/x "
+
   IntranetIP:
     Type: String
     MinLength: '7'
@@ -49,7 +58,7 @@ Parameters:
   SubnetId:
     Type: AWS::EC2::Subnet::Id
     Description: Selectionner le Subnet AZC
- 
+
   InstanceType:
     Description: WebServer EC2 instance type
     Type: String
@@ -87,8 +96,8 @@ Resources:
           #!/bin/bash -xe
 
           sudo apt update 
-          
-          sudo apt install  -y apache2
+
+          sudo apt install -y apache2
           cd /var/www/html/
           sudo rm index.html
           cat > index.html << EOF
@@ -129,8 +138,9 @@ Resources:
           sudo apt install strongswan -y
 
           sudo cat >> /etc/ipsec.conf << EOF
+
           # ipsec.conf
-          config setup
+
           conn %default
             ikelifetime=60m
             keylife=20m
@@ -142,7 +152,7 @@ Resources:
 
           conn net-net
             left=${myEIP}
-            leftsubnet=10.0.30.0/24
+            leftsubnet=${AZCSubnetCIDR}
             leftid=@aws
             leftfirewall=no
             right=${LocalPublicIP}  
@@ -156,10 +166,10 @@ Resources:
           sudo cat >> /etc/ipsec.secrets << EOF
             @aws @local : PSK "Str0ngSw4n"
           EOF
-          sudo cat > /etc/rc.local << EOF
+          sudo cat > /etc/rc.local << EOF 
           #! /bin/bash
           echo 1 > /proc/sys/net/ipv4/ip_forward
-          iptables -t nat -A POSTROUTING -s ${LocalSubnetCIDR} -d 10.0.30.0/24 -j MASQUERADE
+          iptables -t nat -A POSTROUTING -s ${LocalSubnetCIDR} -d ${AZCSubnetCIDR} -j MASQUERADE
           iptables -t nat -I POSTROUTING -m policy --pol ipsec --dir out -j ACCEPT
           exit 0
           EOF
@@ -181,37 +191,39 @@ Resources:
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
-
-      SecurityGroupEgress:
-        - IpProtocol: udp
-          FromPort: 1194
-          ToPort: 1194
-          CidrIp: !Ref LocalPublicIPCIDR
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: !Ref LocalPublicIPCIDR
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: !Ref LocalPublicIPCIDR
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: !Ref LocalPublicIPCIDR
-        - IpProtocol: tcp
-          FromPort: 943
-          ToPort: 943
-          CidrIp: !Ref LocalPublicIPCIDR
-        - IpProtocol: tcp
-          FromPort: 500
-          ToPort: 500
-          CidrIp: !Ref LocalPublicIPCIDR
         - IpProtocol: icmp
           FromPort: 8
           ToPort: -1
-          CidrIp: !Ref LocalPublicIPCIDR
-          
+          CidrIp: !Ref PublicCIDR
+      SecurityGroupIngress:
+        - IpProtocol: udp
+          FromPort: 1194
+          ToPort: 1194
+          CidrIp: !Ref PublicCIDR
+        - IpProtocol: tcp
+          FromPort: 22
+          ToPort: 22
+          CidrIp: !Ref PublicCIDR
+        - IpProtocol: tcp
+          FromPort: 80
+          ToPort: 80
+          CidrIp: !Ref PublicCIDR
+        - IpProtocol: tcp
+          FromPort: 443
+          ToPort: 443
+          CidrIp: !Ref PublicCIDR
+        - IpProtocol: tcp
+          FromPort: 943
+          ToPort: 943
+          CidrIp: !Ref PublicCIDR
+        - IpProtocol: tcp
+          FromPort: 500
+          ToPort: 500
+          CidrIp: !Ref PublicCIDR
+        - IpProtocol: icmp
+          FromPort: 8
+          ToPort: -1
+          CidrIp: !Ref PublicCIDR
   myEIP:
     Type: "AWS::EC2::EIP"
     Properties:
@@ -222,7 +234,7 @@ Resources:
     Properties:
       InstanceId: !Ref VPNInstance
       EIP: !Ref myEIP
-            
+
 Outputs:
   Gateway:
     Description: "Gateway Address"
