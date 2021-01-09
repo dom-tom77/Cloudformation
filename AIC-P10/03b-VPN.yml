@@ -9,24 +9,6 @@ Parameters:
     Description: SSH Key for the OpenVPN Instance
     ConstraintDescription: Must be the name of an existing EC2 KeyPair.
 
-  LocalPublicIP:
-    Type: String 
-    MinLength: '7'
-    MaxLength: '15'    
-    Default: 2.14.34.5
-    Description: "Saisir l'IPv4 de votre adresse IPv4 publique. "
-    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})'
-    ConstraintDescription: "Doit etre une adresse valide sous la notation : x.x.x.x "
-
-  LocalSubnetCIDR:
-    Type: String 
-    MinLength: '7'
-    MaxLength: '18'    
-    Default: 192.168.254.0/24
-    Description: "Saisir l'adresse réseau local au format CIDR. "
-    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
-    ConstraintDescription: "Doit etre une adresse valide sous la notation : x.x.x.x/x "
-
   AZCSubnetCIDR:
     Type: String 
     MinLength: '7'
@@ -36,14 +18,23 @@ Parameters:
     AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})/(\d{1,2})'
     ConstraintDescription: "Doit etre une adresse valide sous la notation : x.x.x.x/x "
 
-  IntranetIP:
+  IPIntranet:
     Type: String
     MinLength: '7'
     MaxLength: '15'
     #IPv4 : 10.0.30.20
     Description: Saisir l'adresse IP du serveur Intranet dans AZC
     AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})'
-    ConstraintDescription: "Doit etre une IP CIDR valide sous la notation : x.x.x.x"
+    ConstraintDescription: "Doit etre une IPv4  valide sous la notation : x.x.x.x"
+
+  IPVPN:
+    Type: String
+    MinLength: '7'
+    MaxLength: '15'
+    #IPv4 : 10.0.30.254
+    Description: Saisir l'adresse IP du serveur Intranet dans AZC
+    AllowedPattern: '(\d{1,3})\.(\d{1,3})\.(\d{1,3})\.(\d{1,3})'
+    ConstraintDescription: "Doit etre une IPv4 valide sous la notation : x.x.x.x"
 
   VPCId:
     Type: AWS::EC2::VPC::Id
@@ -77,7 +68,6 @@ Resources:
     Properties:      
       InstanceType: !Ref InstanceType
       ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", UBUNTUAMI]
-      PrivateIpAddress: !Ref IntranetIP        
       KeyName: !Ref SSHKeyName
       SecurityGroupIds:
         - !Ref SGIntranet
@@ -88,27 +78,29 @@ Resources:
       UserData: 
         Fn::Base64: !Sub |
           #!/bin/bash -xe
-
+          sudo ip route add default via ${IPVPN}
           sudo apt update 
-
-          sudo apt install -y apache2
-          cd /var/www/html/
-          sudo rm index.html
-          cat > index.html << EOF
+          sudo apt install apache2 -y
+          sudo rm /var/www/html/index.html
+          sudo cat > /var/www/html/index.html << EOF
           <h1> Site Intranet </h1>
           EOF
-          sudo systemctl start apache2
+          sudo systemctl restart apache2
+      PrivateIpAddress: !Ref IPIntranet  
+
+      Tags:
+        - Key: Name
+          Value: EC2-INTRANET-SERVER
 
   SGIntranet: 
     Type:  "AWS::EC2::SecurityGroup"
     Properties:
       GroupDescription:  Intranet EC2 security group 
       VpcId: !Ref VPCId
-      SecurityGroupIngress:
+      SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
-
-      SecurityGroupEgress:
+      SecurityGroupIngress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
 
@@ -120,6 +112,7 @@ Resources:
       SecurityGroupIds:
         - !Ref SGVPNInstance
       KeyName: !Ref SSHKeyName
+      PrivateIpAddress: !Ref IPVPN              
       Tags:
         - Key: Name
           Value: ServeurVPN      
@@ -127,60 +120,60 @@ Resources:
       UserData: 
         Fn::Base64: !Sub |
           #!/bin/bash -xe
-
           sudo apt update 
-          sudo apt install strongswan -y
-
-          sudo cat >> /etc/ipsec.conf << EOF
-
-          # ipsec.conf
-
-          conn %default
-            ikelifetime=60m
-            keylife=20m
-            rekeymargin=3m
-            keyingtries=1
-            authby=secret
-            keyexchange=ikev2
-            mobike=no
-
-          conn HOME2AWS
-            auto=start
-            authby=secret
-            left=${myEIP}
-            leftsubnet=${AZCSubnetCIDR}
-            right=${LocalPublicIP}
-            rightsubnet=${LocalSubnetCIDR}
-            ike=aes256-sha2_256-modp2048!
-            esp=aes256-sha2_256!
-            aggressive=no
-            lifetime=3600s
-            dpddelay=30s
-            dpdtimeout=120s
-            dpdaction=restart
-
+          sudo apt install openvpn -y
+          sudo mkdir /etc/openvpn/keys
+          sudo cat > /etc/openvpn/secret.key << EOF
+          #
+          # 2048 bit OpenVPN static key
+          #
+          -----BEGIN OpenVPN Static key V1-----
+          # faire openvpn --genkey --secret CheminClef
+          -----END OpenVPN Static key V1-----
           EOF
 
-          sudo cat >> /etc/ipsec.secrets << EOF
-            ${myEIP} ${LocalPublicIP} : PSK "Str0ngSw4n"
+          sudo cat > /etc/openvpn/client/client.conf << EOF
+          # Serveur OpenVPN
+          remote "IPPublique_de_la_BOX" 1194
+          dev tun
+          ifconfig 10.8.0.2 10.8.0.1
+          secret /etc/openvpn/secret.key
+          verb 2
+          log-append /var/log/openvpn.log
+          route 192.168.0.0 255.255.255.0
           EOF
+
           sudo cat > /etc/rc.local << EOF 
           #! /bin/bash
-          echo 1 > /proc/sys/net/ipv4/ip_forward
-          /sbin/iptables -t nat -A POSTROUTING -s ${LocalSubnetCIDR} -d ${AZCSubnetCIDR} -j MASQUERADE
-          /sbin/iptables -t nat -I POSTROUTING -m policy --pol ipsec --dir out -j ACCEPT
-          exit 0
+          /sbin/iptables -t nat -F
+          /sbin/iptables -t mangle -F
+          /sbin/iptables -t filter -F
+          /sbin/iptables -t nat -X
+          /sbin/iptables -t mangle -X
+          /sbin/iptables -t filter -X
+          /sbin/iptables -Z
 
+          echo 1 > /proc/sys/net/ipv4/ip_forward
+
+          iptables -t nat -A POSTROUTING -o tun0 -j MASQUERADE
+          iptables -t nat -A POSTROUTING -o eth0 -j MASQUERADE
+
+          sudo openvpn /etc/openvpn/client/client.conf
+          exit 0
           EOF
+
+          cat >> /etc/syctl.conf << EOF
+          net.ipv4.ip_forward=1
+          EOF
+
           sudo chmod 755 /etc/rc.local
           sudo /etc/rc.local
-          sudo systemctl enable --now strongswan.service
-          sudo ipsec reload
+
+          sudo service openvpn start
 
       Tags:
         - Key: Name
-          Value: VPN-EC2-VPN-Server
-
+          Value: EC2-VPN-SERVER
 
   SGVPNInstance:
     Type: "AWS::EC2::SecurityGroup"
@@ -190,39 +183,10 @@ Resources:
       SecurityGroupEgress:
         - IpProtocol: -1
           CidrIp: 0.0.0.0/0
-        - IpProtocol: icmp
-          FromPort: 8
-          ToPort: -1
-          CidrIp: !Ref PublicCIDR
       SecurityGroupIngress:
-        - IpProtocol: udp
-          FromPort: 1194
-          ToPort: 1194
-          CidrIp: !Ref PublicCIDR
-        - IpProtocol: tcp
-          FromPort: 22
-          ToPort: 22
-          CidrIp: !Ref PublicCIDR
-        - IpProtocol: tcp
-          FromPort: 80
-          ToPort: 80
-          CidrIp: !Ref PublicCIDR
-        - IpProtocol: tcp
-          FromPort: 443
-          ToPort: 443
-          CidrIp: !Ref PublicCIDR
-        - IpProtocol: tcp
-          FromPort: 943
-          ToPort: 943
-          CidrIp: !Ref PublicCIDR
-        - IpProtocol: tcp
-          FromPort: 500
-          ToPort: 500
-          CidrIp: !Ref PublicCIDR
-        - IpProtocol: icmp
-          FromPort: 8
-          ToPort: -1
-          CidrIp: !Ref PublicCIDR
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
   myEIP:
     Type: "AWS::EC2::EIP"
     Properties:
@@ -231,7 +195,8 @@ Resources:
   IPAssoc:
     Type: "AWS::EC2::EIPAssociation"
     Properties:
-      InstanceId: !Ref VPNInstance
+      InstanceId: 
+        - !Ref VPNInstance
       EIP: !Ref myEIP
 
 Outputs:
