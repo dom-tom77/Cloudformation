@@ -81,10 +81,11 @@ Resources:
           sudo ip route add default via ${IPVPN}
           sudo apt update 
           sudo apt install apache2 -y
-          sudo rm /var/www/html/index.html
+          sudo chmod 766 /var/www/html/index.html
           sudo cat > /var/www/html/index.html << EOF
           <h1> Site Intranet </h1>
           EOF
+          sudo chmod 644 /var/www/html/index.html
           sudo systemctl restart apache2
       PrivateIpAddress: !Ref IPIntranet  
 
