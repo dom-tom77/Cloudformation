@@ -1,0 +1,26 @@
+#!/bin/bash
+# Print the IP address
+_IP=$(hostname -I) || true
+if [ "$_IP" ]; then
+  printf "My IP address is %s\n" "$_IP"
+fi
+# déclaration de la variable eth0 pour simplifier
+eth0=enxb827eb3939cc
+
+# RAZ des règles iptables existantes
+/sbin/iptables -t nat -F
+/sbin/iptables -t mangle -F
+/sbin/iptables -t filter -F
+/sbin/iptables -t nat -X
+/sbin/iptables -t mangle -X
+/sbin/iptables -t filter -X
+/sbin/iptables -Z
+
+# Applique le routage
+iptables -t nat -A POSTROUTING -o tun0 -j MASQUERADE
+iptables -t nat -A POSTROUTING -o ${eth0} -j MASQUERADE
+
+# Demarrage du service openvpn
+openvpn /etc/openvpn/server/server.conf
+
+exit 0
