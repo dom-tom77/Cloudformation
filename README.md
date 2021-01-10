@@ -6,7 +6,8 @@ Dans l'ordre d'éxècution :
   - Internet.yml
   - Intranet.yml
 
-Sont OP : Network et Internet
- 
-Doit arriver prochaînenemt 
-Partie VPN dans Intranet.yml en cours de finalisation  
+Sont OP : Network, Internet et Intranet
+
+Etre plus fin conernant les règles de routage sur 03-Intranet.yml
+
+Reste la procédure du serveur OpenVPN à mettre en forme 
