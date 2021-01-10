@@ -63,48 +63,6 @@ Mappings:
       "AWSAMI" : "ami-0de12f76efe134f2f"
 
 Resources:
-  IntranetInstance:
-    Type: "AWS::EC2::Instance"
-    Properties:      
-      InstanceType: !Ref InstanceType
-      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", UBUNTUAMI]
-      KeyName: !Ref SSHKeyName
-      SecurityGroupIds:
-        - !Ref SGIntranet
-      SubnetId: !Ref SubnetId
-      Tags:
-      - Key: Name
-        Value: Intranet
-      UserData: 
-        Fn::Base64: !Sub |
-          #!/bin/bash -xe
-          sudo ip route add default via ${IPVPN}
-          sudo apt update 
-          sudo apt install apache2 -y
-          sudo chmod 766 /var/www/html/index.html
-          sudo cat > /var/www/html/index.html << EOF
-          <h1> Site Intranet </h1>
-          EOF
-          sudo chmod 644 /var/www/html/index.html
-          sudo systemctl restart apache2
-      PrivateIpAddress: !Ref IPIntranet  
-
-      Tags:
-        - Key: Name
-          Value: EC2-INTRANET-SERVER
-
-  SGIntranet: 
-    Type:  "AWS::EC2::SecurityGroup"
-    Properties:
-      GroupDescription:  Intranet EC2 security group 
-      VpcId: !Ref VPCId
-      SecurityGroupEgress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
-      SecurityGroupIngress:
-        - IpProtocol: -1
-          CidrIp: 0.0.0.0/0
-
   VPNInstance:
     Type: "AWS::EC2::Instance"
     Properties:
@@ -181,6 +139,48 @@ Resources:
     Type: "AWS::EC2::SecurityGroup"
     Properties:
       GroupDescription: SG for OpenVPN Server
+      VpcId: !Ref VPCId
+      SecurityGroupEgress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+      SecurityGroupIngress:
+        - IpProtocol: -1
+          CidrIp: 0.0.0.0/0
+
+  IntranetInstance:
+    Type: "AWS::EC2::Instance"
+    Properties:      
+      InstanceType: !Ref InstanceType
+      ImageId: !FindInMap [RegionMap, !Ref "AWS::Region", UBUNTUAMI]
+      KeyName: !Ref SSHKeyName
+      SecurityGroupIds:
+        - !Ref SGIntranet
+      SubnetId: !Ref SubnetId
+      Tags:
+      - Key: Name
+        Value: Intranet
+      UserData: 
+        Fn::Base64: !Sub |
+          #!/bin/bash -xe
+          sudo ip route add default via ${IPVPN}
+          sudo apt update 
+          sudo apt install apache2 -y
+          sudo chmod 766 /var/www/html/index.html
+          sudo cat > /var/www/html/index.html << EOF
+          <h1> Site Intranet </h1>
+          EOF
+          sudo chmod 644 /var/www/html/index.html
+          sudo systemctl restart apache2
+      PrivateIpAddress: !Ref IPIntranet  
+
+      Tags:
+        - Key: Name
+          Value: EC2-INTRANET-SERVER
+
+  SGIntranet: 
+    Type:  "AWS::EC2::SecurityGroup"
+    Properties:
+      GroupDescription:  Intranet EC2 security group 
       VpcId: !Ref VPCId
       SecurityGroupEgress:
         - IpProtocol: -1
