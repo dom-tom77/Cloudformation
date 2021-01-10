@@ -107,6 +107,7 @@ Resources:
   VPNInstance:
     Type: "AWS::EC2::Instance"
     Properties:
+      SourceDestCheck: false
       InstanceType: !Ref InstanceType
       SubnetId: !Ref SubnetId
       SecurityGroupIds:
